@@ -408,3 +408,47 @@ test('the registry refuses a second, different release of the same version', asy
     cleanup(root);
   }
 });
+
+// ---------- trained revisions: the same id may recur only as a strictly newer direct child ----------
+const revision = (version, parentVersion) => {
+  const t = neg('child-valid-addition');
+  t.id = 'safi.cs-graduate-jobseeker';
+  t.version = version;
+  t.parent = { id: 'safi.cs-graduate-jobseeker', version: parentVersion };
+  t.refinement.addConstraints[0].id = `extra-careful-${version.replaceAll('.', '-')}`;
+  return t;
+};
+
+test('A03 positive: a trained revision (same id, higher version) may sit directly on its predecessor', () => {
+  const root = makeRoot();
+  try {
+    addTemplate(root, revision('1.0.1', '1.0.0'));
+    addTemplate(root, revision('1.0.2', '1.0.1'));
+    const c = compile('safi.cs-graduate-jobseeker@1.0.2', { root });
+    assert.deepEqual(c.ancestry.map((a) => `${a.id}@${a.version}`), [T0, T1, T2, 'safi.cs-graduate-jobseeker@1.0.1', 'safi.cs-graduate-jobseeker@1.0.2']);
+    assert.equal(c.effective.constraints.filter((x) => x.id.startsWith('extra-careful')).length, 2);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('A03 negative 2d: a same-id parent with a non-increasing version is rejected', () => {
+  const root = makeRoot();
+  try {
+    addTemplate(root, revision('1.0.5', '1.0.0'));
+    addTemplate(root, revision('1.0.3', '1.0.5')); // lower than its parent
+    assert.throws(() => compile('safi.cs-graduate-jobseeker@1.0.3', { root }), codeIs('DUPLICATE_ID'));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('A03 negative 2e: a template whose parent is its own exact id@version is rejected', () => {
+  const root = makeRoot();
+  try {
+    addTemplate(root, revision('1.0.5', '1.0.5'));
+    assert.throws(() => compile('safi.cs-graduate-jobseeker@1.0.5', { root }), codeIs('CYCLE'));
+  } finally {
+    cleanup(root);
+  }
+});
