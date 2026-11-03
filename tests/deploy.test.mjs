@@ -2,10 +2,11 @@
 // simulation extracts the real bundle and runs it in office mode with its own data folder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import * as tar from 'tar';
 import { buildBundle, collectBundleFiles, deploy, loadOfficeConfig, verifyManifest } from '../deploy-office.mjs';
 import { prepareOfficeLocal, officeEnv } from '../scripts/office-local.mjs';
@@ -26,6 +27,7 @@ function makeBundleRoot({ withDist = true, decoys = true, config } = {}) {
   mkdirSync(path.join(root, 'config'), { recursive: true });
   cpSync(path.join(REPO, 'config', 'office-grants.json'), path.join(root, 'config', 'office-grants.json'));
   for (const f of ['factory.mjs', 'package.json', 'package-lock.json']) cpSync(path.join(REPO, f), path.join(root, f));
+  cpSync(path.join(REPO, 'fixtures'), path.join(root, 'fixtures'), { recursive: true }); // includes negative/ and adversarial-job.*, which must not be bundled
   if (withDist) {
     mkdirSync(path.join(root, 'client', 'dist', 'assets'), { recursive: true });
     writeFileSync(path.join(root, 'client', 'dist', 'index.html'), '<!doctype html><title>SAFI</title><div id="root"></div>');
@@ -39,7 +41,6 @@ function makeBundleRoot({ withDist = true, decoys = true, config } = {}) {
     put('.env.local', 'X=1\n');
     put('lib/.env', 'X=1\n');
     put('tests/a.test.mjs', 'x');
-    put('fixtures/alex-example.profile.json', '{}');
     put('release/old.tgz', 'x');
     put('docs/SOW-017.md', 'x');
     put('templates/unreleased-draft@9.9.9.json', '{"id":"unreleased-draft"}');
@@ -61,7 +62,7 @@ async function listTar(file) {
 }
 
 // ---------------------------------------------------------------- bundle ----
-test('bundle: contains only runtime files; drafts, data, .env, tests, fixtures, release, docs and unreleased templates are excluded', async () => {
+test('bundle: contains only runtime files; drafts, data, .env, tests, negative/adversarial fixtures, release, docs and unreleased templates are excluded; demo fixtures are included', async () => {
   const root = makeBundleRoot();
   try {
     const b = buildBundle({ root, gitSha: 'abc123def456' });
@@ -70,9 +71,13 @@ test('bundle: contains only runtime files; drafts, data, .env, tests, fixtures, 
       'office/install.sh', 'office/fetch-secrets.sh', 'office/safi-jobcoach.service', 'registry/index.json', 'templates/safi.cs-graduate-jobseeker@1.0.0.json']) {
       assert.ok(names.includes(must), `bundle should contain ${must}`);
     }
+    for (const f of ['alex-example.profile.json', 'alex-example.resume.txt', 'job-swe-entry.txt', 'job-swe-entry.meta.json', 'job-qa-data-entry.txt', 'job-qa-data-entry.meta.json']) {
+      assert.ok(names.includes(`fixtures/${f}`), `bundle should contain fixtures/${f}`);
+    }
+    assert.ok(!names.some((n) => /^fixtures\/negative\//.test(n) || /adversarial-job/.test(n)), 'negative and adversarial fixtures stay out');
     assert.ok(names.some((n) => n.startsWith('skills/')) && names.some((n) => n.startsWith('knowledge/')) && names.some((n) => n.startsWith('schemas/')));
     for (const n of names) {
-      assert.doesNotMatch(n, /^(drafts|data|tests|fixtures|release|docs|node_modules)\//, `forbidden path in bundle: ${n}`);
+      assert.doesNotMatch(n, /^(drafts|data|tests|release|docs|node_modules)\//, `forbidden path in bundle: ${n}`);
       assert.doesNotMatch(n, /(^|\/)\.env/, `env file in bundle: ${n}`);
       assert.doesNotMatch(n, /\.pem$|unreleased-draft/, `key or draft in bundle: ${n}`);
     }
@@ -277,24 +282,259 @@ test('restart and status: SSM commands target the safi-jobcoach service and repo
   } finally { rm(bare); }
 });
 
-test('office scripts: shell syntax is valid and install.sh enforces the Node 20+ prerequisite and sha check', async () => {
-  const { spawnSync } = await import('node:child_process');
-  for (const f of ['install.sh', 'fetch-secrets.sh']) {
-    const r = spawnSync('bash', ['-n', path.join(REPO, 'office', f)], { encoding: 'utf8' });
-    assert.equal(r.status, 0, `${f}: ${r.stderr}`);
-  }
-  const install = readFileSync(path.join(REPO, 'office', 'install.sh'), 'utf8');
-  assert.match(install, /-ge 20/);
-  assert.match(install, /Node\.js .* is too old/);
-  assert.match(install, /SHA-256 mismatch/);
-  assert.match(install, /npm ci --omit=dev/);
-  assert.match(install, /current\.new/);
+// ---------------------------------------------------------------- office scripts (run under bash with stubs) ----
+const hasBash = (() => { try { return spawnSync('bash', ['-c', 'true']).status === 0; } catch { return false; } })();
+const SKIP_BASH = hasBash ? false : 'bash is not available on this machine, so the install.sh / fetch-secrets.sh behaviour tests are skipped (install Git Bash or WSL to run them).';
+const posix = (p) => (process.platform === 'win32' ? p.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_m, d) => `/${d.toLowerCase()}`) : p);
+const symlinksWork = (() => {
+  const d = mkdtempSync(path.join(tmpdir(), 'safi-sl-'));
+  try { symlinkSync(d, path.join(d, 'l')); return true; } catch { return false; } finally { rmSync(d, { recursive: true, force: true }); }
+})();
+const sha256hex = (buf) => createHash('sha256').update(buf).digest('hex');
+
+test('office scripts: unit file and static contract (one Node floor everywhere)', () => {
   const unit = readFileSync(path.join(REPO, 'office', 'safi-jobcoach.service'), 'utf8');
   assert.match(unit, /Restart=always/);
   assert.match(unit, /ExecStartPre=\+.*fetch-secrets\.sh/);
-  const fetch = readFileSync(path.join(REPO, 'office', 'fetch-secrets.sh'), 'utf8');
-  assert.match(fetch, /--with-decryption/);
-  assert.match(fetch, /chmod 0600/);
+  assert.match(unit, /^ExecStart=\/usr\/bin\/env node server\/index\.mjs$/m, 'no node flags that an older supported Node might lack');
+  const pkg = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8'));
+  assert.equal(pkg.engines.node, '>=22.9.0');
+  const install = readFileSync(path.join(REPO, 'office', 'install.sh'), 'utf8');
+  assert.match(install, /-lt 22/, 'install.sh enforces the same Node floor as package.json');
+  assert.match(install, /--ignore-scripts/);
+  const doc = readFileSync(path.join(REPO, 'docs', 'AWS-REQUIREMENTS.md'), 'utf8');
+  assert.match(doc, /Node\.js 22 LTS \(22\.9 or newer\) or Node 24 LTS/);
+  assert.doesNotMatch(doc, /Node 20 or newer/);
+});
+
+/** A sandbox for running office/install.sh and fetch-secrets.sh under bash with fake aws/systemctl/npm/node/useradd/curl/id/chown on PATH. */
+function makeSandbox() {
+  const dir = mkdtempSync(path.join(tmpdir(), 'safi-sh-'));
+  const sb = { dir, stubs: path.join(dir, 'stubs'), app: path.join(dir, 'opt'), data: path.join(dir, 'data'), conf: path.join(dir, 'etc'), systemd: path.join(dir, 'systemd'), run: path.join(dir, 'run'), params: path.join(dir, 'params'), log: path.join(dir, 'calls.log') };
+  for (const d of [sb.stubs, sb.params, sb.app]) mkdirSync(d, { recursive: true });
+  writeFileSync(sb.log, '');
+  const stub = (name, body) => writeFileSync(path.join(sb.stubs, name), `#!/usr/bin/env bash\n${body}\n`, { mode: 0o755 });
+  const L = '[ -n "${STUB_LOG:-}" ] && echo "$(basename "$0") $*" >> "$STUB_LOG"';
+  stub('id', 'if [ "${1:-}" = "-u" ]; then echo 0; elif [ -n "${STUB_USER_MISSING:-}" ]; then exit 1; else exit 0; fi');
+  for (const n of ['useradd', 'systemctl', 'chown', 'journalctl']) stub(n, `${L}\nexit 0`);
+  stub('node', 'if [ "${1:-}" = "-v" ]; then echo "${STUB_NODE_VERSION:-v24.13.0}"; fi');
+  stub('npm', `${L}\nif [ -n "\${STUB_NPM_FAIL:-}" ]; then echo "npm ERR! boom" >&2; exit 1; fi\nmkdir -p node_modules && echo ok > node_modules/.installed`);
+  stub('curl', `${L}\nif [ -n "\${STUB_CURL_FAIL:-}" ]; then exit 22; fi\necho '{"status":"ok","mode":"office"}'`);
+  // aws: "s3 cp s3://b/k DEST ..." copies the test bundle; "ssm get-parameter --name N ..." prints the file params/<N with / -> _>.
+  stub('aws', `${L}
+if [ "$1" = s3 ] && [ "$2" = cp ]; then cp "$STUB_BUNDLE" "$4"; exit 0; fi
+if [ "$1" = ssm ]; then
+  while [ $# -gt 0 ]; do if [ "$1" = --name ]; then n=$2; fi; shift; done
+  f="$STUB_PARAMS/$(echo "$n" | tr / _)"
+  [ -f "$f" ] || { echo "ParameterNotFound" >&2; exit 254; }
+  cat "$f"; exit 0
+fi
+exit 1`);
+  if (!symlinksWork) {
+    // Windows without symlink privilege: emulate `ln -sfn TARGET LINK` / `readlink LINK` with a small file holding the target.
+    stub('ln', 'while [ $# -gt 0 ]; do case "$1" in -*) ;; *) if [ -z "${t:-}" ]; then t=$1; else l=$1; fi ;; esac; shift; done\nprintf %s "$t" > "$l"');
+    stub('readlink', 'if [ -f "$1" ]; then cat "$1"; else exit 1; fi');
+  }
+  sb.env = (extra = {}) => ({
+    SAFI_TEST_PATH: `${posix(sb.stubs)}:/usr/bin:/bin`,
+    HOME: posix(sb.dir),
+    SAFI_APP_DIR: posix(sb.app), SAFI_OFFICE_DATA_DIR: posix(sb.data), SAFI_CONF_DIR: posix(sb.conf), SAFI_SYSTEMD_DIR: posix(sb.systemd), SAFI_RUN_DIR: posix(sb.run),
+    SAFI_HEALTH_TRIES: '2', SAFI_HEALTH_SLEEP: '0',
+    STUB_LOG: posix(sb.log), STUB_PARAMS: posix(sb.params),
+    ...extra
+  });
+  sb.calls = () => readFileSync(sb.log, 'utf8').split('\n').filter(Boolean);
+  sb.current = () => {
+    const f = path.join(sb.app, 'current');
+    try { return existsSync(f) ? (symlinksWork ? readlinkSync(f) : readFileSync(f, 'utf8')) : null; } catch { return null; }
+  };
+  // bash itself is found with the real PATH; the script then runs with only the stubs and the base system tools on PATH.
+  sb.exec = (script, args, extra) => spawnSync('bash', ['-c', 'export PATH="$SAFI_TEST_PATH"; exec bash "$@"', 'safi-test', posix(path.join(REPO, 'office', script)), ...args], { env: { ...process.env, ...sb.env(extra) }, encoding: 'utf8' });
+  return sb;
+}
+
+/** A tiny bundle with the real office/ scripts and a fake server, plus the args install.sh needs. */
+function makeInstallBundle(sb, tag = 'one') {
+  const src = path.join(sb.dir, `src-${tag}`);
+  mkdirSync(path.join(src, 'server'), { recursive: true });
+  cpSync(path.join(REPO, 'office'), path.join(src, 'office'), { recursive: true });
+  writeFileSync(path.join(src, 'server', 'index.mjs'), `// ${tag}\n`);
+  writeFileSync(path.join(src, 'package.json'), '{"name":"x","version":"1.0.0"}');
+  writeFileSync(path.join(src, 'package-lock.json'), '{}');
+  const file = path.join(sb.dir, `bundle-${tag}.tgz`);
+  tar.c({ file, cwd: src, gzip: true, portable: true, noPax: true, mtime: new Date(0), sync: true }, ['office', 'server', 'package.json', 'package-lock.json']);
+  const sha = sha256hex(readFileSync(file));
+  const args = (release) => ['--bundle-file', posix(file), '--sha', sha, '--release', release, '--region', 'ap-south-1', '--port', '8017', '--host', '127.0.0.1', '--secure-cookie', '1',
+    '--secret-param', '/safi/office/anthropic-api-key', '--candidate-param', '/safi/office/candidate-passcode', '--trainer-param', '/safi/office/trainer-passcode'];
+  return { file, sha, args };
+}
+const setArg = (args, opt, val) => { const a = [...args]; a[a.indexOf(opt) + 1] = val; return a; };
+
+test('install.sh: a wrong sha aborts before anything is extracted or changed', { skip: SKIP_BASH }, () => {
+  const sb = makeSandbox();
+  try {
+    const b = makeInstallBundle(sb);
+    const r = sb.exec('install.sh', setArg(b.args('rel-1'), '--sha', 'f'.repeat(64)));
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /SHA-256 mismatch/);
+    assert.match(r.stderr, /Nothing was installed/);
+    assert.ok(!existsSync(path.join(sb.app, 'releases')), 'no releases folder was created');
+    assert.ok(!existsSync(path.join(sb.conf, 'office.conf')));
+    assert.ok(!sb.calls().some((c) => /^(npm|systemctl|useradd)/.test(c)), sb.calls().join('\n'));
+  } finally { rm(sb.dir); }
+});
+
+test('install.sh: refuses Node older than the 22.9 floor and unsafe argument values', { skip: SKIP_BASH }, () => {
+  const sb = makeSandbox();
+  try {
+    const b = makeInstallBundle(sb);
+    for (const v of ['v20.19.0', 'v18.20.0', 'v22.8.0']) {
+      const r = sb.exec('install.sh', b.args('rel-1'), { STUB_NODE_VERSION: v });
+      assert.notEqual(r.status, 0, v);
+      assert.match(r.stderr, /too old/);
+    }
+    for (const v of ['v22.9.0', 'v22.12.0', 'v24.13.0']) {
+      const r = sb.exec('install.sh', b.args(`rel-${v}`), { STUB_NODE_VERSION: v });
+      assert.equal(r.status, 0, `${v}: ${r.stderr}`);
+    }
+    for (const [opt, val] of [['--host', '10.0.0.5'], ['--region', 'ap south'], ['--secret-param', '/x;rm -rf /'], ['--candidate-param', "/x'y"], ['--release', '../evil']]) {
+      const r = sb.exec('install.sh', setArg(b.args('rel-z'), opt, val));
+      assert.notEqual(r.status, 0, `${opt} ${val}`);
+      assert.match(r.stderr, /INSTALL FAILED/);
+    }
+  } finally { rm(sb.dir); }
+});
+
+test('install.sh: fresh install creates the user, data dir, release, current, config (no secrets), unit, and restarts', { skip: SKIP_BASH }, () => {
+  const sb = makeSandbox();
+  try {
+    const b = makeInstallBundle(sb);
+    const r = sb.exec('install.sh', b.args('rel-1'), { STUB_USER_MISSING: '1' });
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.match(r.stdout, /INSTALL OK release=rel-1/);
+    const rel = path.join(sb.app, 'releases', 'rel-1');
+    assert.ok(existsSync(path.join(rel, 'server', 'index.mjs')));
+    assert.ok(existsSync(path.join(rel, 'node_modules', '.installed')), 'npm ci ran in the release');
+    assert.match(String(sb.current()), /releases[\\/]rel-1$/);
+    assert.ok(existsSync(sb.data));
+    assert.ok(existsSync(path.join(sb.systemd, 'safi-jobcoach.service')));
+    const conf = readFileSync(path.join(sb.conf, 'office.conf'), 'utf8');
+    assert.match(conf, /^SAFI_MODE=office$/m);
+    assert.match(conf, /^COOKIE_SECURE=1$/m);
+    assert.match(conf, /^SECRET_PARAM=\/safi\/office\/anthropic-api-key$/m);
+    assert.doesNotMatch(conf, /sk-ant|PASSCODE=/);
+    const calls = sb.calls();
+    assert.ok(calls.some((c) => c.startsWith('useradd')), 'safi user created');
+    assert.ok(calls.some((c) => /^npm ci --omit=dev --ignore-scripts/.test(c)));
+    assert.ok(calls.includes('systemctl restart safi-jobcoach'));
+    assert.deepEqual(readdirSync(path.join(sb.app, 'releases')), ['rel-1'], 'no staging folder left behind');
+  } finally { rm(sb.dir); }
+});
+
+test('install.sh: re-deploying the live release keeps it intact (no delete, no re-install), refreshes config and restarts', { skip: SKIP_BASH }, () => {
+  const sb = makeSandbox();
+  try {
+    const b = makeInstallBundle(sb);
+    assert.equal(sb.exec('install.sh', b.args('rel-1')).status, 0);
+    const rel = path.join(sb.app, 'releases', 'rel-1');
+    writeFileSync(path.join(rel, 'node_modules', 'sentinel'), 'still here'); // proves the folder is not rebuilt
+    writeFileSync(sb.log, '');
+    const r = sb.exec('install.sh', b.args('rel-1'));
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.match(r.stdout, /already live/);
+    assert.equal(readFileSync(path.join(rel, 'node_modules', 'sentinel'), 'utf8'), 'still here');
+    assert.match(String(sb.current()), /releases[\\/]rel-1$/);
+    assert.ok(!sb.calls().some((c) => c.startsWith('npm')), 'npm ci not run again');
+    assert.ok(sb.calls().includes('systemctl restart safi-jobcoach'));
+    // an unhealthy redeploy of the same release must not delete it or invent a rollback target
+    const bad = sb.exec('install.sh', b.args('rel-1'), { STUB_CURL_FAIL: '1' });
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stderr, /no earlier release to roll back to/);
+    assert.ok(existsSync(path.join(rel, 'server', 'index.mjs')), 'live release survives a failed health check');
+    assert.match(String(sb.current()), /releases[\\/]rel-1$/);
+  } finally { rm(sb.dir); }
+});
+
+test('install.sh: failed npm ci leaves the previous release live; an unhealthy new release rolls back to the genuinely previous one', { skip: SKIP_BASH }, () => {
+  const sb = makeSandbox();
+  try {
+    const one = makeInstallBundle(sb, 'one');
+    assert.equal(sb.exec('install.sh', one.args('rel-1')).status, 0);
+    const two = makeInstallBundle(sb, 'two');
+    const failed = sb.exec('install.sh', two.args('rel-2'), { STUB_NPM_FAIL: '1' });
+    assert.notEqual(failed.status, 0);
+    assert.match(failed.stderr, /npm ci failed; nothing was changed and the release that was live is still live/);
+    assert.match(String(sb.current()), /releases[\\/]rel-1$/, 'rel-1 is still live');
+    assert.ok(existsSync(path.join(sb.app, 'releases', 'rel-1', 'server', 'index.mjs')));
+    assert.deepEqual(readdirSync(path.join(sb.app, 'releases')), ['rel-1'], 'no half-built release or staging folder left');
+
+    writeFileSync(sb.log, '');
+    const unhealthy = sb.exec('install.sh', two.args('rel-2'), { STUB_CURL_FAIL: '1' });
+    assert.notEqual(unhealthy.status, 0);
+    assert.match(unhealthy.stderr, /rolled back to .*rel-1/);
+    assert.match(String(sb.current()), /releases[\\/]rel-1$/, 'current points back at rel-1');
+    assert.equal(sb.calls().filter((c) => c === 'systemctl restart safi-jobcoach').length, 2, 'restarted for rel-2, then again after the rollback');
+
+    // a later healthy deploy of rel-2 reuses the already-built folder and succeeds
+    const ok = sb.exec('install.sh', two.args('rel-2'));
+    assert.equal(ok.status, 0, ok.stderr);
+    assert.match(String(sb.current()), /releases[\\/]rel-2$/);
+    assert.ok(existsSync(path.join(sb.app, 'releases', 'rel-1')), 'previous release kept for rollback');
+  } finally { rm(sb.dir); }
+});
+
+function fetchSandbox(values) {
+  const sb = makeSandbox();
+  mkdirSync(sb.conf, { recursive: true });
+  writeFileSync(path.join(sb.conf, 'office.conf'), 'AWS_REGION=ap-south-1\nSECRET_PARAM=/s/key\nCANDIDATE_PASSCODE_PARAM=/s/cand\nTRAINER_PASSCODE_PARAM=/s/train\n');
+  writeFileSync(path.join(sb.params, '_s_key'), values[0]);
+  writeFileSync(path.join(sb.params, '_s_cand'), values[1]);
+  writeFileSync(path.join(sb.params, '_s_train'), values[2]);
+  return sb;
+}
+
+test('fetch-secrets.sh: writes the env file with mode 0600 and leaves no temp file', { skip: SKIP_BASH }, () => {
+  const sb = fetchSandbox(['sk-ant-test-key', 'cand pass', 'train#pass']);
+  try {
+    const r = sb.exec('fetch-secrets.sh', []);
+    assert.equal(r.status, 0, r.stderr);
+    const out = path.join(sb.run, 'env');
+    assert.equal(readFileSync(out, 'utf8'), 'ANTHROPIC_API_KEY=sk-ant-test-key\nCANDIDATE_PASSCODE=cand pass\nTRAINER_PASSCODE=train#pass\n');
+    assert.deepEqual(readdirSync(sb.run), ['env']);
+    if (process.platform === 'win32') {
+      // SKIPPED ON WINDOWS: NTFS has no POSIX modes, so 0600 cannot be observed here. Only the chmod call is asserted.
+      assert.match(readFileSync(path.join(REPO, 'office', 'fetch-secrets.sh'), 'utf8'), /chmod 0600 "\$tmp"/);
+    } else {
+      assert.equal(statSync(out).mode & 0o777, 0o600);
+    }
+    assert.ok(sb.calls().some((c) => c.startsWith('chown safi:safi')));
+  } finally { rm(sb.dir); }
+});
+
+test('fetch-secrets.sh: rejects quotes, backslashes, newlines and empty values; nothing is written', { skip: SKIP_BASH }, () => {
+  const bads = { 'double quote': 'a"b', 'single quote': "a'b", backslash: 'a\\b', 'trailing backslash': 'abc\\', newline: 'a\nb', 'carriage return': 'a\rb' };
+  for (const [what, bad] of Object.entries(bads)) {
+    for (let slot = 0; slot < 3; slot++) {
+      if (what !== 'backslash' && slot !== Object.keys(bads).indexOf(what) % 3) continue; // every slot is exercised via backslash; the others rotate
+      const vals = ['good-key', 'good-cand', 'good-train'];
+      vals[slot] = bad;
+      const sb = fetchSandbox(vals);
+      try {
+        const r = sb.exec('fetch-secrets.sh', []);
+        assert.notEqual(r.status, 0, `${what} in value ${slot} must be rejected`);
+        assert.match(r.stderr, /newline, quote or backslash/, what);
+        assert.deepEqual(existsSync(sb.run) ? readdirSync(sb.run) : [], [], `${what}: no env file and no temp file`);
+      } finally { rm(sb.dir); }
+    }
+  }
+  const sb = fetchSandbox(['', 'c', 't']);
+  try {
+    const r = sb.exec('fetch-secrets.sh', []);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /parameter is empty/);
+    rmSync(path.join(sb.params, '_s_cand'));
+    assert.notEqual(sb.exec('fetch-secrets.sh', []).status, 0, 'an unreadable parameter fails loudly');
+  } finally { rm(sb.dir); }
 });
 
 // ---------------------------------------------------------------- local office
@@ -323,13 +563,18 @@ test('local Office: bundle extracts and boots in office mode; instance + run sur
     assert.ok(existsSync(path.join(appDir, 'server', 'index.mjs')));
     assert.ok(!existsSync(path.join(appDir, 'drafts')) && !existsSync(path.join(appDir, 'data')) && !existsSync(path.join(appDir, 'tests')));
     const T2 = 'safi.cs-graduate-jobseeker@1.0.0';
-    const profile = JSON.parse(readFileSync(path.join(REPO, 'fixtures', 'alex-example.profile.json'), 'utf8'));
+    const profile = JSON.parse(readFileSync(path.join(appDir, 'fixtures', 'alex-example.profile.json'), 'utf8'));
 
     let office = await startOffice(appDir, dataDir);
     let instanceId; let runId;
     try {
       assert.equal((await office.api('GET', '/health')).json.mode, 'office');
       const alex = await office.login('candidate', 'Alex');
+      // The one-click demo works inside the extracted Office (fixtures come from the bundle, not the repo).
+      const demo = await office.api('GET', '/fixtures/demo', { cookie: alex });
+      assert.equal(demo.status, 200, demo.text);
+      assert.equal(demo.json.profile.candidateName, 'Alex Example');
+      assert.ok(demo.json.resumeText.length > 50 && demo.json.job.text.length > 50);
       const made = await office.api('POST', '/instances', { cookie: alex, body: { templateRef: T2, config: profile, name: 'Alex coach' } });
       assert.equal(made.status, 201, made.text);
       instanceId = made.json.instanceId;

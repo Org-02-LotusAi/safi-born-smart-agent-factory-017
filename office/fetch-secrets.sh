@@ -4,8 +4,9 @@
 # Runs as root from the systemd unit (ExecStartPre=+). Fails loudly if any parameter cannot be read.
 set -euo pipefail
 
-CONF=/etc/safi-office/office.conf
-RUN_DIR=/run/safi-office
+# SAFI_CONF_DIR / SAFI_RUN_DIR are test hooks; production uses the defaults.
+CONF="${SAFI_CONF_DIR:-/etc/safi-office}/office.conf"
+RUN_DIR="${SAFI_RUN_DIR:-/run/safi-office}"
 OUT="$RUN_DIR/env"
 
 if [ ! -r "$CONF" ]; then
@@ -40,8 +41,8 @@ for v in "$anthropic_key" "$candidate_pass" "$trainer_pass"; do
       echo "safi-office: an SSM parameter is empty; check the three parameter names in office.json." >&2
       exit 1
       ;;
-    *$'\n'*|*\"*|*\'*)
-      echo "safi-office: a parameter value contains a newline or a quote, which systemd env files cannot hold safely." >&2
+    *$'\n'*|*$'\r'*|*\"*|*\'*|*\\*)
+      echo "safi-office: a parameter value contains a newline, quote or backslash, which systemd env files cannot hold safely. Choose a value without those characters." >&2
       exit 1
       ;;
   esac

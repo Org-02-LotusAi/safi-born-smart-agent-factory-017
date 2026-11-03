@@ -14,10 +14,12 @@
     "test:live": "node --env-file-if-exists=.env --test \"tests/live/*.test.mjs\"",
     "verify:model": "node --env-file-if-exists=.env scripts/verify-model.mjs",
     "office:local": "node scripts/office-local.mjs",
-    "deploy:office": "node deploy-office.mjs"
+    "deploy:office": "node deploy-office.mjs",
+    "release:manifest": "node scripts/release-manifest.mjs",
+    "acceptance": "node --env-file-if-exists=.env scripts/acceptance.mjs"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=22.9.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",

@@ -33,7 +33,7 @@ const REQUIRED = {
 const OPTIONAL = {
   prefix: { re: /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/, def: 'safi-office/releases', help: 'S3 key prefix for bundles.' },
   port: { def: 8017, help: 'TCP port of the Office web server.' },
-  bindHost: { re: /^[A-Za-z0-9.:-]+$/, def: '127.0.0.1', help: 'Address the server binds on the instance (use 0.0.0.0 only behind a restricted security group).' },
+  bindHost: { re: /^(127\.0\.0\.1|0\.0\.0\.0)$/, def: '127.0.0.1', help: 'Address the server binds on the instance: 127.0.0.1 or 0.0.0.0 only (use 0.0.0.0 only behind a restricted security group).' },
   publicUrl: { re: /^https?:\/\/[^\s'"`$\\]+$/, def: null, help: 'URL Chrome uses to reach the Office (shown in reports).' },
   kmsKeyId: { re: /^[A-Za-z0-9:/_-]+$/, def: null, help: 'Optional KMS key id/ARN for S3 SSE (default: S3-managed AES256).' }
 };
@@ -114,6 +114,8 @@ const SECRET_CONTENT = [
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'a private key'],
   [/aws_secret_access_key\s*[=:]/i, 'an AWS secret access key']
 ];
+const DEMO_FIXTURE = /^(alex-example\.[A-Za-z0-9.-]+|job-[a-z0-9-]+\.(txt|meta\.json))$/;
+const DEMO_FIXTURE_REQUIRED = ['alex-example.profile.json', 'alex-example.resume.txt', 'job-swe-entry.txt', 'job-swe-entry.meta.json'];
 const toPosix = (p) => p.split(path.sep).join('/');
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
@@ -151,6 +153,17 @@ export function collectBundleFiles(root) {
       if (existsSync(path.join(root, e.path))) files.push(toPosix(e.path));
       else problems.push(`Registry lists ${e.path} but the file is missing.`);
     }
+  }
+  // Synthetic demo fixtures only (GET /fixtures/demo, "Fill with Alex Example", sample job postings).
+  // fixtures/negative/ and adversarial-job.* are test-only and stay out.
+  const fixDir = path.join(root, 'fixtures');
+  if (existsSync(fixDir)) {
+    for (const name of readdirSync(fixDir).sort()) {
+      if (DEMO_FIXTURE.test(name) && statSync(path.join(fixDir, name)).isFile()) files.push(`fixtures/${name}`);
+    }
+  }
+  for (const need of DEMO_FIXTURE_REQUIRED) {
+    if (!files.includes(`fixtures/${need}`)) problems.push(`Demo fixture fixtures/${need} is missing (the Office needs it for "Fill with Alex Example").`);
   }
   if (existsSync(path.join(root, 'client', 'dist')) && !existsSync(path.join(root, 'client', 'dist', 'index.html'))) {
     problems.push('client/dist has no index.html: run npm run build first.');
@@ -233,7 +246,8 @@ export function plan(cfg, built) {
   const bundleName = built?.manifest?.bundle?.name ?? `safi-office-${sha}.tgz`;
   const bundleSha = built?.bundleSha256 ?? '<bundle-sha256>';
   const releaseId = built ? `${sha}-${bundleSha.slice(0, 8)}` : '<gitsha>-<first 8 of bundle sha256>';
-  const keyDir = `${cfg.prefix}/${sha}`;
+  // The release id includes the bundle hash, so rebuilding a dirty tree for the same git sha never overwrites an earlier upload.
+  const keyDir = `${cfg.prefix}/${releaseId}`;
   const s3Key = `${keyDir}/${bundleName}`;
   const manifestKey = `${keyDir}/manifest.json`;
   const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -255,13 +269,15 @@ export function plan(cfg, built) {
   const restartCommands = [
     'set -eu',
     `systemctl restart ${SERVICE}`,
+    'H=$(mktemp)',
+    `trap 'rm -f "$H"' EXIT`,
     'ok=0',
     'for i in $(seq 1 30); do',
-    `  if curl -fsS --max-time 5 ${health} >/tmp/safi-health.json 2>/dev/null; then ok=1; break; fi`,
+    `  if curl -fsS --max-time 5 ${health} >"$H" 2>/dev/null; then ok=1; break; fi`,
     '  sleep 2',
     'done',
     `if [ "$ok" != 1 ]; then echo "The Office did not become healthy after restart." >&2; journalctl -u ${SERVICE} -n 20 --no-pager >&2 || true; exit 1; fi`,
-    'echo "health=$(cat /tmp/safi-health.json)"'
+    'echo "health=$(cat "$H")"'
   ];
   const statusCommands = [
     `echo "service=$(systemctl is-active ${SERVICE} || true)"`,
@@ -356,7 +372,7 @@ function dryRun(root, loaded) {
   }
   add('Check Office settings', loaded.ok ? `Using ${loaded.path}.` : `Settings are incomplete in ${loaded.path}${loaded.exists ? '' : ' (file not found; copy config/office.example.json)'}.`);
   add('Build the runtime bundle', bundleInfo.ok
-    ? `${bundleInfo.fileCount} runtime files, sha256 ${bundleInfo.bundleSha256}. Written to ${path.relative(root, built.dir)}/. Drafts, data, .env files, tests and fixtures are never included.`
+    ? `${bundleInfo.fileCount} runtime files, sha256 ${bundleInfo.bundleSha256}. Written to ${path.relative(root, built.dir)}/. Drafts, data, .env files, tests and negative/adversarial fixtures are never included.`
     : `Cannot build yet:\n${bundleInfo.problems.map((p) => `    - ${p}`).join('\n')}`);
   void files;
   if (loaded.ok) {
@@ -399,7 +415,8 @@ async function doDeploy(root, loaded, opts) {
   return {
     mode: 'deploy', ok: true, release: p.releaseId, gitSha: built.gitSha, bundleSha256: built.bundleSha256,
     s3: { bucket: cfg.bucket, key: p.s3Key, manifestKey: p.manifestKey }, ssm: { instanceId: cfg.instanceId, document: SSM_DOCUMENT, commandId: res.commandId, status: res.status },
-    publicUrl: cfg.publicUrl, output: res.stdout.trim().split('\n').slice(-20).join('\n'), steps
+    publicUrl: cfg.publicUrl, output: res.stdout.trim().split('\n').slice(-20).join('\n'), steps,
+    warnings: built.manifest.dirty ? ['The working tree has uncommitted changes in bundled files, so this release is not exactly the committed code. Commit before the real hand-over.'] : []
   };
 }
 
@@ -469,6 +486,7 @@ function printReport(r) {
     return;
   }
   if (r.mode === 'deploy') {
+    for (const w of r.warnings ?? []) console.log(`WARNING: ${w}`);
     console.log(`PASS deploy: release ${r.release} is installed on ${r.ssm.instanceId}.\nBundle sha256: ${r.bundleSha256}\nS3: s3://${r.s3.bucket}/${r.s3.key}\nSSM command: ${r.ssm.commandId} (${r.ssm.status})${r.publicUrl ? `\nOpen: ${r.publicUrl}` : ''}\n\n${r.output}`);
     return;
   }

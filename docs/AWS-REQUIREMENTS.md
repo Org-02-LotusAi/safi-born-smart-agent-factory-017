@@ -6,9 +6,10 @@ SAFI deploys with `node deploy-office.mjs`. It never creates AWS resources; it o
 ## 1. Linux instance (the Office)
 - One EC2 instance, Amazon Linux 2023 (or Ubuntu 22.04/24.04), t3.small is enough for the demo.
 - Root and data volumes: encrypted gp3 EBS (default KMS key is fine). SAFI stores all resumes, profiles and run records on this disk under `/var/lib/safi-office`.
-- Node.js 20 or newer (22 LTS recommended) on the PATH for root, plus `aws` CLI v2, `npm`, `tar`, `curl`, `sha256sum` (all standard on Amazon Linux 2023 except Node: `dnf install nodejs22` or the NodeSource package). The install fails with a clear message if Node is older than 20.
+- Node.js 22 LTS (22.9 or newer) or Node 24 LTS, installed system-wide so `/usr/bin/env node` finds it for root and for the `safi` service user (not an nvm-style per-user install). This is the one supported minimum: the production dependencies `canonicalize` and `openai` require Node 22+, and `npm start` uses `--env-file-if-exists`, added in Node 22.9. Node 20 is not supported. The test suite has been run on Node 24 only; 22.9 is the floor declared by the dependencies and the CLI flag. Also needed: `aws` CLI v2, `npm`, `tar`, `curl`, `sha256sum` (all standard on Amazon Linux 2023 except Node: `dnf install nodejs22` or the NodeSource package). The install fails with a clear message if Node is older than 22.9.
 - Outbound internet (HTTPS 443) to `api.anthropic.com` (the AI model), npm registry (during install), S3 and SSM endpoints.
 - SSM Agent running (preinstalled on Amazon Linux 2023). The instance must show as "Online" in Systems Manager Fleet Manager.
+- Confirm `/var/lib/safi-office` is on the encrypted volume (the installer does not check this).
 
 ## 2. Instance profile (role attached to the instance)
 Attach `AmazonSSMManagedInstanceCore` plus this inline policy (replace the bucket, prefix and parameter names; keep them identical to what you send us in section 7):
@@ -46,9 +47,9 @@ Attach `AmazonSSMManagedInstanceCore` plus this inline policy (replace the bucke
 If the parameters use the AWS-managed `alias/aws/ssm` key, the `kms:Decrypt` statement may be dropped (that key is usable by anyone with `ssm:GetParameter`); if you use a customer-managed key, keep it and add the instance role to the key policy.
 
 ## 3. S3 bucket (bundle drop)
-- One private bucket in the same region. Block Public Access: all four settings ON. Default encryption SSE-S3 (or SSE-KMS, then tell us the key id and add `kms:GenerateDataKey` for the deployer).
+- One private bucket in the same region. Block Public Access: all four settings ON. Default encryption SSE-S3 (or SSE-KMS, then tell us the key id, add `kms:GenerateDataKey` for the deployer, and add `kms:Decrypt` on that key to the instance role, otherwise the instance cannot download the bundle).
 - Bucket versioning ON is recommended (keeps every release bundle).
-- Bundles go under the prefix `safi-office/releases/<gitsha>/` (the prefix is configurable).
+- Bundles go under the prefix `safi-office/releases/<gitsha>-<bundle hash>/` (the prefix is configurable); the bundle hash is part of the key, so a rebuild never overwrites an earlier upload.
 
 ## 4. SSM Parameter Store SecureStrings
 Create three `SecureString` parameters (Standard tier is fine):
@@ -102,7 +103,7 @@ The deployer can run shell commands on that one instance, which is how install, 
 
 ## 6. Network: how Chrome reaches the Office
 The app listens on port 8017 (HTTP). Pick one:
-- Recommended: an Application Load Balancer (or CloudFront) with an ACM certificate, HTTPS on 443, forwarding to the instance on 8017; the instance security group allows 8017 only from the load balancer. Then set `bindHost` to `0.0.0.0` and `publicUrl` to the `https://` address (the app then marks its sign-in cookie Secure).
+- Recommended: an Application Load Balancer (or CloudFront) with an ACM certificate, HTTPS on 443, forwarding to the instance on 8017; the instance security group allows 8017 only from the load balancer. Then set `bindHost` to `0.0.0.0` (`bindHost` accepts only `127.0.0.1` or `0.0.0.0`) and `publicUrl` to the `https://` address (the app then marks its sign-in cookie Secure).
 - Or a Cloudflare/SSM tunnel to `127.0.0.1:8017` (keep `bindHost` `127.0.0.1`).
 - Minimum for a demo: security group inbound TCP 8017 from the office/tester IP addresses only (never 0.0.0.0/0), plain HTTP. Sign-in passcodes would travel unencrypted, so use only on a trusted network.
 - No inbound SSH is required (everything uses SSM).
@@ -113,6 +114,6 @@ The app listens on port 8017 (HTTP). Pick one:
 - The three SSM parameter names
 - The URL Chrome should open (and whether it is HTTPS)
 - How to sign in as the deployer (SSO start URL and role name, or AWS_PROFILE instructions)
-- Confirmation that the instance shows "Online" in Systems Manager and `node -v` is 20 or newer
+- Confirmation that the instance shows "Online" in Systems Manager and `node -v` is 22.9 or newer
 
 We put these into `config/office.json` (git-ignored), then run `node deploy-office.mjs --dry-run`, `--deploy`, `--status`.
