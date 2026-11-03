@@ -1,0 +1,133 @@
+{
+  "kind": "safi-service-expert-init",
+  "schemaNote": "Scoped Service Expert initialization manifest required by SOW 017 section 5 (SOW, OpenAPI, Git SHA, tests). The fields under source and documents.*.sha256 are filled by `npm run release:manifest`; do not edit them by hand.",
+  "service": {
+    "id": "safi-service-017",
+    "name": "Born-Smart Agent Factory",
+    "version": "1.0.0",
+    "summary": "Builds role-ready AI agents from a rooted hierarchy of immutable, versioned JSON templates (T0 safi.agent, T1 safi.career, T2 safi.cs-graduate-jobseeker), trains and qualifies new template versions with a human Trainer, and deploys qualified runtimes to the customer-owned SOW 016 Office."
+  },
+  "source": {
+    "gitSha": null,
+    "dirty": null,
+    "releaseManifest": "release/RELEASE-MANIFEST.json",
+    "releaseManifestFilesSha256": null
+  },
+  "documents": {
+    "sow": {
+      "path": "docs/SOW-017.md",
+      "sha256": null,
+      "note": "Verbatim text extract of the customer SOW; the source of truth."
+    },
+    "sowOriginal": {
+      "path": "SAFI_SOW_017_Fixed 1.docx",
+      "sha256": null
+    },
+    "openapi": {
+      "path": "openapi.yaml",
+      "sha256": null,
+      "version": "3.1.0",
+      "basePath": "/api/v1",
+      "routes": ["health", "session", "me", "templates", "compile", "fixtures", "instances", "runs", "approve-output", "export", "interview-feedback", "drafts", "qualify", "approve", "deploy", "jobs"]
+    },
+    "readme": { "path": "README.md" },
+    "design": { "path": "docs/DESIGN.md" },
+    "runbook": { "path": "docs/RUNBOOK.md" },
+    "model": { "path": "MODEL.md" },
+    "acceptance": { "path": "ACCEPTANCE.json" },
+    "dogfood": { "path": "DOGFOOD.md" },
+    "awsRequirements": { "path": "docs/AWS-REQUIREMENTS.md" }
+  },
+  "tests": {
+    "offline": {
+      "command": "npm test",
+      "description": "node:test unit and integration suite with a stub model; no network, no key needed."
+    },
+    "registryVerification": {
+      "command": "npm run verify",
+      "description": "Re-hashes every released template, skill and knowledge document against registry/index.json."
+    },
+    "live": {
+      "command": "npm run test:live",
+      "description": "Real-model tests (A05, A06, A10, train/qualify/approve in a temporary copy of the repo). Needs ANTHROPIC_API_KEY. Spends a few cents."
+    },
+    "acceptance": {
+      "command": "npm run acceptance",
+      "liveCommand": "npm run acceptance -- --live",
+      "output": ["ACCEPTANCE.json", "evidence/<UTC timestamp>/"],
+      "checks": ["A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11"]
+    },
+    "releaseManifest": {
+      "command": "npm run release:manifest",
+      "checkCommand": "node scripts/release-manifest.mjs --check"
+    }
+  },
+  "expertInit": {
+    "description": "Scoped initialization for a Service Expert that answers questions about Service 017. It is a read-only documentation expert: it explains how the Factory, templates, training, qualification and deployment work, and where evidence lives. It does not run the Factory, does not call the model on anyone's behalf, and has no tools that act outward.",
+    "scope": {
+      "readPaths": [
+        "docs/SOW-017.md",
+        "openapi.yaml",
+        "README.md",
+        "DOGFOOD.md",
+        "MODEL.md",
+        "ACCEPTANCE.json",
+        "docs/DESIGN.md",
+        "docs/RUNBOOK.md",
+        "docs/AWS-REQUIREMENTS.md",
+        "docs/CONSTRAINTS.md",
+        "templates/",
+        "skills/",
+        "knowledge/",
+        "registry/index.json",
+        "schemas/",
+        "release/RELEASE-MANIFEST.json",
+        "config/office-grants.json",
+        "config/office.example.json"
+      ],
+      "neverRead": [
+        ".env",
+        ".env.*",
+        "data/",
+        "drafts/*.meta.json",
+        "config/office.json",
+        ".office-local/",
+        "evidence/**/*run*.json (contain run records; synthetic data only, but not needed to answer questions)"
+      ],
+      "grantedTools": [],
+      "forbiddenTools": ["submit_application", "send_email", "scrape", "use_credentials"]
+    },
+    "starterQuestions": [
+      "What does T2 inherit from T0 and T1?",
+      "How is a new template version qualified and who approves it?",
+      "What does the hash of a template cover?",
+      "Which tools can an agent use, and who decides?",
+      "What evidence exists for acceptance check A05?"
+    ],
+    "doNotBuild": "A second chat platform. The Factory SPA is not a general chat UI, and the Expert is served by Service 013, not by this repository."
+  },
+  "integrations": {
+    "service013": {
+      "status": "DEFERRED",
+      "decision": "Temporary integration deferral permitted by SOW 017 section 5 ('if Service 013 integration is unavailable, record the precise temporary integration deferral').",
+      "recordedOn": "2026-11-03",
+      "recordedBy": "Task 7 implementer (SAFI Service 017 build)",
+      "whatIsUnavailable": "Service 013 could not be reached or configured from this build environment: no Service 013 endpoint, registration API, or credentials were available to the builder, so this manifest has not been loaded into a live Service Expert and no Expert initialization call was made or tested.",
+      "whatIsDone": "This manifest, openapi.yaml (OpenAPI 3.1, running routes under /api/v1, parity with the Express routes checked by tests/server.test.mjs) and the listed documents are complete and hashed, so nothing on the Service 017 side blocks the integration.",
+      "whatIsNeeded": [
+        "The Service 013 base URL (or the SAFI platform owner's name for it) and the method it uses to register or initialize a scoped Service Expert.",
+        "Service 013's expected manifest format, if it differs from this file. A field mapping is a small change to this JSON; no code change is needed.",
+        "A credential with permission to register an Expert, supplied through SAFI's normal secret mechanism (not committed, not placed in this repository).",
+        "A decision on where Service 017's API is reachable from Service 013 (the Factory is bound to 127.0.0.1:8017 by default; the Office service binds to 127.0.0.1 behind the customer's own access path)."
+      ],
+      "howToIntegrate": [
+        "1. Run `npm run release:manifest` so source.gitSha and the document hashes are current, then commit.",
+        "2. Give Service 013 this file and the paths listed under expertInit.scope.readPaths (or import openapi.yaml directly, since it describes every route, the request and response shapes and the error codes).",
+        "3. Point Service 013 at the running service's base path /api/v1. Liveness is GET /api/v1/health. Every other route needs a session (POST /api/v1/session with a role, a passcode and a name); the Expert should only be given read routes (GET /templates, GET /templates/{ref}) and never the trainer routes.",
+        "4. Verify with the starter questions above and `npm run acceptance`. Remove this deferral (status DEFERRED) and record the registration date and Service 013 version when it is done."
+      ],
+      "owner": "SAFI platform owner",
+      "reviewTrigger": "When a Service 013 endpoint and registration method are provided."
+    }
+  }
+}
