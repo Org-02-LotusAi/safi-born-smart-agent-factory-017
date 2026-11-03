@@ -8,10 +8,10 @@
     "summary": "Builds role-ready AI agents from a rooted hierarchy of immutable, versioned JSON templates (T0 safi.agent, T1 safi.career, T2 safi.cs-graduate-jobseeker), trains and qualifies new template versions with a human Trainer, and deploys qualified runtimes to the customer-owned SOW 016 Office."
   },
   "source": {
-    "gitSha": "135d41e1cd4ea14234ac51b6f32ade9314769e4e",
+    "gitSha": "96626ba9b292f04b08558d99d54a57a1d76ae383",
     "dirty": false,
     "releaseManifest": "release/RELEASE-MANIFEST.json",
-    "releaseManifestFilesSha256": "7731ac5b8da11e0eb2e4b23146b4335002a5d6c8530946c8fe48ed802063ed80"
+    "releaseManifestFilesSha256": "1d8ce129ec1053096658a109cf048928f0c344231117e42b4e3c06ab39e9d0aa"
   },
   "documents": {
     "sow": {

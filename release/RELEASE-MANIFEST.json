@@ -2,8 +2,8 @@
   "kind": "safi-release-manifest",
   "service": "SAFI Service 017 Born-Smart Agent Factory",
   "version": "1.0.0",
-  "generatedAt": "2026-11-03T09:20:33.190Z",
-  "gitSha": "135d41e1cd4ea14234ac51b6f32ade9314769e4e",
+  "generatedAt": "2026-11-03T09:28:25.008Z",
+  "gitSha": "96626ba9b292f04b08558d99d54a57a1d76ae383",
   "dirty": false,
   "dirtyFiles": [],
   "node": "v24.13.0",
@@ -30,7 +30,7 @@
     }
   ],
   "fileCount": 108,
-  "filesSha256": "7731ac5b8da11e0eb2e4b23146b4335002a5d6c8530946c8fe48ed802063ed80",
+  "filesSha256": "1d8ce129ec1053096658a109cf048928f0c344231117e42b4e3c06ab39e9d0aa",
   "files": {
     "client/dist/assets/bricolage-grotesque-latin-ext-wght-normal-CcLUaPy7.woff2": "e808f16b56f84dc7933e498cc8a41d4a5cd853adc6eef154584baa5de1008b15",
     "client/dist/assets/bricolage-grotesque-latin-wght-normal-DLoelf7F.woff2": "a97804dc9fbe5fc972a08018c5eda4dab7ef2346f64c57e61419d05e6de4ea1c",
@@ -113,7 +113,7 @@
     "schemas/run-output.schema.json": "0f5e7afe57e3af6c08e55dab5f8c575ae5ea2d2a32b774256e40dd3b40129ffe",
     "schemas/skill.meta.schema.json": "fdb8c98de5afc0aa3f121cb5ccc15d7d7f9844cd5862cf71fdd23a4812309edb",
     "schemas/template.meta.schema.json": "8b70275abe8c2faa9eb7b4f5ef6d476c436b501aef56ca3b405935f85921336d",
-    "scripts/acceptance.mjs": "c42d948ad28075448498447afa824b2fefd0963877ac038af4a872e3d6c1d3eb",
+    "scripts/acceptance.mjs": "7e3ccf81ffd1b0f6997d05f9e998a09cc978d19efdbb1382d02b35c1779b7564",
     "scripts/office-local.mjs": "a9d7f0dff16efcdb86e931ab21a1790e50077ae697026235b96a49ff4f343a1d",
     "scripts/rehash.mjs": "51160e611f95fa332b0de37b041f30bbeb5e2e926974021d0106ddde130b7d5b",
     "scripts/release-manifest.mjs": "f2b8c09bfd09a034aaea3a32a335069c2306f24e1135ede1694b043182b22762",
