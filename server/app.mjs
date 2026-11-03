@@ -35,7 +35,7 @@ function gitSha() {
 export function createApp(opts = {}) {
   const env = opts.env ?? process.env;
   const root = path.resolve(opts.root ?? REPO);
-  const dataDir = path.resolve(opts.dataDir ?? path.join(root, 'data'));
+  const dataDir = path.resolve(opts.dataDir ?? env.SAFI_DATA_DIR ?? path.join(root, 'data'));
   const mode = (opts.mode ?? env.SAFI_MODE ?? 'factory') === 'office' ? 'office' : 'factory';
   const quiet = opts.quiet ?? false;
   const log = (level, msg, err) => {

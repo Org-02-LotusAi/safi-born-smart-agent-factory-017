@@ -1,0 +1,13 @@
+{
+  "region": "ap-south-1",
+  "instanceId": "i-REPLACE-WITH-OFFICE-INSTANCE-ID",
+  "bucket": "REPLACE-customer-safi-office-bucket",
+  "prefix": "safi-office/releases",
+  "secretParameterName": "/safi/office/anthropic-api-key",
+  "candidatePasscodeParameterName": "/safi/office/candidate-passcode",
+  "trainerPasscodeParameterName": "/safi/office/trainer-passcode",
+  "port": 8017,
+  "bindHost": "127.0.0.1",
+  "publicUrl": "https://REPLACE-office-hostname",
+  "kmsKeyId": null
+}

@@ -1,0 +1,30 @@
+[Unit]
+Description=SAFI Job Coach Office (SAFI_MODE=office)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=safi
+Group=safi
+WorkingDirectory=/opt/safi-office/current
+# Non-secret settings written by install.sh: SAFI_MODE, SAFI_DATA_DIR, PORT, HOST, GIT_SHA, parameter names.
+EnvironmentFile=/etc/safi-office/office.conf
+# Secrets are fetched from SSM Parameter Store into a tmpfs file at every start (never stored on disk).
+# The leading "-" lets the fetch step run even before the file exists.
+EnvironmentFile=-/run/safi-office/env
+RuntimeDirectory=safi-office
+RuntimeDirectoryMode=0750
+ExecStartPre=+/opt/safi-office/current/office/fetch-secrets.sh
+ExecStart=/usr/bin/env node server/index.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/safi-office
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

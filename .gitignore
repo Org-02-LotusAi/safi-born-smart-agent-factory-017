@@ -9,3 +9,6 @@ release/*.tgz
 *.log
 drafts/*.meta.json
 drafts/*.qualification.json
+config/office.json
+release/office-bundle/
+.office-local/
