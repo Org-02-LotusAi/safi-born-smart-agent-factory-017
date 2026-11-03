@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { get, post, pollJob, ApiError } from './api.js';
+import { get, post, pollJob, ApiError, JOB_TIMEOUT } from './api.js';
 import { Button, CopyText, Disclosure, ErrorBox, Explainer, Field, Notice, Pill, Progress, when } from './ui.jsx';
 import { Origin, refName } from './Tree.jsx';
 
 const DEFAULT_LESSON = 'Never list a capstone or class project as paid work or count it as years of experience.';
 const DRAFT_TONE = { DRAFT: 'warn', FAILED: 'bad', QUALIFIED: 'ok', STALE: 'warn', PUBLISHED: 'ok', INVALID: 'bad' };
 const DRAFT_LABEL = { DRAFT: 'Not tested yet', FAILED: 'Failed its tests', QUALIFIED: 'Passed every test', STALE: 'Changed since testing', PUBLISHED: 'Published', INVALID: 'Damaged' };
+
+/** True when the server has given a final answer about a job: it failed (status 200 from pollJob) or no longer exists (404). */
+const jobEnded = (e) => e instanceof ApiError && (e.status === 200 || e.status === 404);
 
 const store = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -215,11 +218,12 @@ export default function Train({ me, initialTemplate }) {
         const j = await get(`/jobs/${jid}`);
         if (j.status === 'done' || j.status === 'failed') { store.set(`safi.job.qualify.${selDraft}`, null); load(selDraft); return; }
         setQualifying(true); setProgress(j.progressText || '');
-        await pollJob(jid, (x) => setProgress(x.progressText || ''), ac.signal);
+        await pollJob(jid, (x) => setProgress(x.progressText || ''), ac.signal, JOB_TIMEOUT.qualify);
         store.set(`safi.job.qualify.${selDraft}`, null); await load(selDraft);
       } catch (e) {
         if (e.name === 'AbortError') return;
-        store.set(`safi.job.qualify.${selDraft}`, null);
+        // Keep the stored job id on a temporary problem so the next visit can pick the job up again.
+        if (jobEnded(e)) store.set(`safi.job.qualify.${selDraft}`, null);
         if (!(e instanceof ApiError && e.code === 'JOB_NOT_FOUND')) setError(e);
         load(selDraft);
       } finally { setQualifying(false); }
@@ -250,12 +254,13 @@ export default function Train({ me, initialTemplate }) {
     try {
       const j = await post(`/drafts/${encodeURIComponent(selDraft)}/qualify`);
       store.set(`safi.job.qualify.${selDraft}`, j.jobId);
-      await pollJob(j.jobId, (x) => setProgress(x.progressText || ''), ac.signal);
+      await pollJob(j.jobId, (x) => setProgress(x.progressText || ''), ac.signal, JOB_TIMEOUT.qualify);
       store.set(`safi.job.qualify.${selDraft}`, null);
       await load(selDraft);
     } catch (e) {
       if (e.name === 'AbortError') return;
-      store.set(`safi.job.qualify.${selDraft}`, null);
+      // Only forget the job when it is really over (failed or gone). A timeout or network blip keeps it for recovery.
+      if (jobEnded(e)) store.set(`safi.job.qualify.${selDraft}`, null);
       setError(e); load(selDraft);
     } finally { setQualifying(false); }
   };

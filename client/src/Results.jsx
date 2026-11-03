@@ -9,6 +9,9 @@ const STATUS = {
   unknown: { tone: 'neutral', label: 'Not enough information' }
 };
 
+const UNKNOWN_STATUS = { tone: 'neutral', label: 'Not enough information' };
+const st = (s) => STATUS[s] || UNKNOWN_STATUS;
+
 export function evidenceLabels(profile) {
   const m = {};
   if (!profile) return m;
@@ -25,7 +28,7 @@ function Chips({ ids, labels }) {
 }
 
 function FitTable({ rows, labels }) {
-  const counts = rows.reduce((a, r) => ({ ...a, [r.status]: (a[r.status] || 0) + 1 }), {});
+  const counts = rows.reduce((a, r) => { const k = STATUS[r.status] ? r.status : 'unknown'; return { ...a, [k]: (a[k] || 0) + 1 }; }, {});
   return (
     <div>
       <ul className="summary-row" aria-label="Summary">
@@ -39,7 +42,7 @@ function FitTable({ rows, labels }) {
             {rows.map((r, i) => (
               <tr key={i} className={`row-${r.status}`}>
                 <th scope="row">{r.requirement}</th>
-                <td><Pill tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Pill></td>
+                <td><Pill tone={st(r.status).tone}>{st(r.status).label}</Pill></td>
                 <td><p>{r.evidence || <span className="muted">Nothing in your profile addresses this yet.</span>}</p><Chips ids={r.evidenceIds} labels={labels} /></td>
               </tr>
             ))}
@@ -133,7 +136,7 @@ function toMarkdown(run, resumeText, labels) {
   const L = [];
   L.push('# Job search pack', '', `Job: ${run.inputs?.job?.url || 'pasted job description'} (accessed ${run.inputs?.job?.accessDate || 'unknown date'})`, `Made by: SAFI ${run.templateRef.id} v${run.templateRef.version} (fingerprint ${shortSha(run.templateRef.sha256)}), run ${run.runId}`, '', '## How you match', '');
   L.push('| Requirement | Status | Evidence |', '| --- | --- | --- |');
-  for (const r of o.matchTable) L.push(`| ${r.requirement.replace(/\|/g, '/')} | ${STATUS[r.status].label} | ${(r.evidence || '').replace(/\|/g, '/')} ${r.evidenceIds.map((id) => `[${labels[id] || id}]`).join(' ')} |`);
+  for (const r of o.matchTable) L.push(`| ${r.requirement.replace(/\|/g, '/')} | ${st(r.status).label} | ${(r.evidence || '').replace(/\|/g, '/')} ${r.evidenceIds.map((id) => `[${labels[id] || id}]`).join(' ')} |`);
   L.push('', '## Resume draft', '', resumeText.trim(), '');
   if (o.resumeDraft.flaggedUnknowns.length) L.push('Check before using:', ...o.resumeDraft.flaggedUnknowns.map((u) => `- ${u}`), '');
   L.push('## Interview questions', '');
@@ -194,10 +197,11 @@ export default function Results({ instanceId, runId, initialRun, profile, onChan
   if (run.status !== 'PASS') {
     return (
       <div className="results">
-        <Notice tone="warn" title="This analysis did not pass its checks, so no results are shown.">
-          <p>The coach never shows an answer that fails its safety and accuracy checks. Nothing was saved as an answer.</p>
-          {(run.reasons || []).length ? <ul>{run.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul> : null}
-          <p>Try again. If it keeps happening, tell your SAFI Trainer and quote run id <span className="mono">{run.runId}</span>.</p>
+        <Notice tone="warn" title="The coach's answer was blocked by its safety checks, so nothing is shown.">
+          <p>This is the safety net doing its job, not a crash. Before any answer reaches you, it is checked against your profile. This one failed, most often because it claimed something your profile does not support, or the AI's reply was not usable. Nothing from it was kept as an answer.</p>
+          {run.task ? <p>Your request was: <em>{run.task}</em></p> : null}
+          {(run.reasons || []).length ? <><p><strong>What the checks found:</strong></p><ul>{run.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul></> : null}
+          <p>What you can do: if the coach was asked for something untrue, add the real facts to your profile or change the request, then ask again. If it keeps happening for an ordinary request, tell your SAFI Trainer and quote run id <span className="mono">{run.runId}</span>.</p>
         </Notice>
         <Proof run={run} instanceId={instanceId} />
       </div>
@@ -223,9 +227,10 @@ export default function Results({ instanceId, runId, initialRun, profile, onChan
       <header className="results-head">
         <div>
           <p className="eyebrow">Results from {when(run.startedAt)}</p>
-          <p className="lede">{o.message}</p>
+          {run.task ? <p className="muted">You asked: <em>{run.task}</em></p> : null}
         </div>
       </header>
+      {o.message ? <Notice tone="info" title="Your coach says"><p className="coach-message">{o.message}</p></Notice> : null}
       <div className="approve-bar">
         {approval ? (
           <>

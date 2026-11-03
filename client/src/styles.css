@@ -248,3 +248,9 @@ legend { font-weight: 600; color: var(--ink); padding: 0; margin-bottom: .35rem;
   .btn-quiet.sm, .who .btn { width: auto; }
 }
 @media print { .top, .skip, .approve-bar { display: none; } }
+
+.suggestions { margin: 0 0 .75rem; }
+.chip-button { cursor: pointer; font: inherit; border: 1px solid var(--line); background: var(--card); }
+.chip-button:hover { border-color: currentColor; }
+.chip-button:focus-visible { outline: 2px solid var(--seal-bright); outline-offset: 2px; }
+.coach-message { font-size: 1.05rem; white-space: pre-wrap; margin: .25rem 0 0; }

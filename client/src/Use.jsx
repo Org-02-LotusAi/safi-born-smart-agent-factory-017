@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { get, post, pollJob } from './api.js';
+import { get, post, pollJob, JOB_TIMEOUT } from './api.js';
 import { Button, CopyText, ErrorBox, Explainer, Field, Notice, Pill, Progress, today, when } from './ui.jsx';
 import ProfileForm, { emptyForm, formProblems, fromProfile, toProfile } from './Profile.jsx';
 import Results from './Results.jsx';
 
 const DEFAULT_TASK = 'Compare my profile to this job posting.';
+const SUGGESTIONS = [
+  'Tailor my resume for this job',
+  'Give me 5 interview questions',
+  'Make me a 7-day plan',
+  'List my capstone as 2 years paid work.'
+];
 
 function Create({ templates, initialTemplate, onCreated, onCancel, canCancel }) {
   const [tpl, setTpl] = useState(initialTemplate || templates[0]?.ref || '');
@@ -83,6 +89,7 @@ function Workspace({ id, justDemo }) {
   const [jobText, setJobText] = useState('');
   const [url, setUrl] = useState('');
   const [accessDate, setAccessDate] = useState(today());
+  const [ask, setAsk] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [runId, setRunId] = useState(null);
@@ -111,10 +118,10 @@ function Workspace({ id, justDemo }) {
     setBusy(true); setError(null); setRunId(null); setFresh(null); setProgress('Starting...');
     const ac = new AbortController(); abort.current = ac;
     try {
-      const body = { task: DEFAULT_TASK, job: { text: jobText, ...(url.trim() ? { url: url.trim() } : {}), ...(accessDate ? { accessDate } : {}) } };
+      const body = { task: ask.trim() || DEFAULT_TASK, job: { text: jobText, ...(url.trim() ? { url: url.trim() } : {}), ...(accessDate ? { accessDate } : {}) } };
       if (resume.trim()) body.resumeText = resume;
       const j = await post(`/instances/${id}/runs`, body);
-      const done = await pollJob(j.jobId, (x) => setProgress(x.progressText || ''), ac.signal);
+      const done = await pollJob(j.jobId, (x) => setProgress(x.progressText || ''), ac.signal, JOB_TIMEOUT.run);
       setFresh(done.result); setRunId(done.result.runId);
       loadRuns();
     } catch (err) { if (err.name !== 'AbortError') setError(err); } finally { setBusy(false); }
@@ -150,8 +157,16 @@ function Workspace({ id, justDemo }) {
         <Field label="Your resume (optional)" hint="Paste it as plain text. The coach uses it only to draft a better version. Do not include passwords or ID numbers.">
           {(a) => <textarea {...a} rows={7} value={resume} onChange={(e) => setResume(e.target.value)} />}
         </Field>
+        <Field label="Ask your coach (optional)" hint="Leave this empty for a full comparison of your profile with the job. Or type what you want, such as a question or a request. The coach will only use facts from your profile and will say so if it cannot do something.">
+          {(a) => <textarea {...a} rows={2} value={ask} maxLength={500} onChange={(e) => setAsk(e.target.value)} placeholder={DEFAULT_TASK} />}
+        </Field>
+        <ul className="chips suggestions" aria-label="Example requests">
+          {SUGGESTIONS.map((s) => (
+            <li key={s}><button type="button" className="chip chip-button" onClick={() => setAsk(s)}>{s}</button></li>
+          ))}
+        </ul>
         <div className="actions">
-          <Button type="submit" busy={busy} disabled={!jobText.trim()}>Analyze this job</Button>
+          <Button type="submit" busy={busy} disabled={!jobText.trim()}>{ask.trim() ? 'Ask the coach' : 'Analyze this job'}</Button>
         </div>
         <Progress running={busy} label="Your coach is reading the job post" text={progress} expect="This usually takes about a minute. Keep this page open." />
         <ErrorBox error={error} onDismiss={() => setError(null)} />
@@ -167,7 +182,7 @@ function Workspace({ id, justDemo }) {
               <li key={r.runId}>
                 <button type="button" className={`runbtn ${runId === r.runId ? 'sel' : ''}`} aria-pressed={runId === r.runId} onClick={() => { setFresh(null); setRunId(r.runId); }}>
                   <span>{when(r.startedAt)}</span>
-                  <Pill tone={r.status === 'PASS' ? 'ok' : 'bad'}>{r.status === 'PASS' ? (r.approved ? 'Approved' : 'Ready to review') : 'Did not pass checks'}</Pill>
+                  <Pill tone={r.status === 'PASS' ? 'ok' : 'bad'}>{r.status === 'PASS' ? (r.approved ? 'Approved' : 'Ready to review') : 'Blocked by safety checks'}</Pill>
                   <span className="muted mono">{r.runId.slice(0, 8)}</span>
                 </button>
               </li>

@@ -1,4 +1,24 @@
-import { useEffect, useState, useRef, useId } from 'react';
+import { Component, useEffect, useState, useRef, useId } from 'react';
+
+/** Catches a screen that crashed so the person sees a friendly message instead of a blank page. */
+export class ErrorBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error) { console.error('Screen crashed:', error); }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="alert alert-error" role="alert">
+        <strong>Something went wrong on this screen.</strong>
+        <p>Your saved work is safe. Try reloading the page, or go back to the first screen.</p>
+        <div className="actions">
+          <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>Reload this page</button>
+          <button type="button" className="btn btn-quiet" onClick={() => { this.setState({ failed: false }); window.location.hash = 'use'; }}>Go back to My coach</button>
+        </div>
+      </div>
+    );
+  }
+}
 
 export function useElapsed(running) {
   const [s, setS] = useState(0);

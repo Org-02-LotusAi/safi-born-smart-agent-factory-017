@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { get, api, post, setSignedOutHandler } from './api.js';
-import { Button, ErrorBox, Explainer, Notice } from './ui.jsx';
+import { Button, ErrorBox, ErrorBoundary, Explainer, Notice } from './ui.jsx';
 import Tree from './Tree.jsx';
 import Use from './Use.jsx';
 import Train from './Train.jsx';
@@ -127,10 +127,12 @@ export default function App() {
       </header>
       <main id="main" tabIndex={-1} className="page">
         {trainer && office ? <Notice title="Office mode">Training is done in the SAFI Factory, not in the Office. You can browse released templates and use coaches here.</Notice> : null}
-        {cur === 'tree' && <Tree me={me} go={go} />}
-        {cur === 'use' && <Use me={me} initialTemplate={pendingTemplate} go={go} />}
-        {cur === 'train' && <Train me={me} initialTemplate={pendingTemplate} />}
-        {cur === 'office' && <Office />}
+        <ErrorBoundary key={cur}>
+          {cur === 'tree' && <Tree me={me} go={go} />}
+          {cur === 'use' && <Use me={me} initialTemplate={pendingTemplate} go={go} />}
+          {cur === 'train' && <Train me={me} initialTemplate={pendingTemplate} />}
+          {cur === 'office' && <Office />}
+        </ErrorBoundary>
       </main>
     </>
   );

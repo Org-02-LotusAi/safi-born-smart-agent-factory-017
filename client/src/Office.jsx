@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { get, post, pollJob } from './api.js';
+import { get, post, pollJob, JOB_TIMEOUT } from './api.js';
 import { Button, Disclosure, ErrorBox, Explainer, Notice, Progress } from './ui.jsx';
 
 const human = (k) => k.replace(/([A-Z])/g, ' $1').replace(/[_-]+/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -45,7 +45,7 @@ export default function Office() {
     try {
       const r = await post('/deploy', { mode: a.mode });
       if (r && r.jobId) {
-        const j = await pollJob(r.jobId, (x) => setProgress(x.progressText || ''), ac.signal);
+        const j = await pollJob(r.jobId, (x) => setProgress(x.progressText || ''), ac.signal, JOB_TIMEOUT.deploy);
         setReport({ title: a.title, data: j.result ?? { finished: true } });
       } else setReport({ title: a.title, data: r });
     } catch (e) { if (e.name !== 'AbortError') setError(e); } finally { setBusy(null); }
@@ -79,7 +79,7 @@ export default function Office() {
       </ul>
       <Progress running={!!busy} label={running ? `${running.label} in progress` : ''} text={progress} expect="Keep this page open until it finishes." />
       <ErrorBox error={error} onDismiss={() => setError(null)} />
-      {error?.code === 'DEPLOY_NOT_INSTALLED' ? <Notice title="The Office tool is not set up yet">Deployment is added in a later step of the project. Everything else works.</Notice> : null}
+      {error?.code === 'DEPLOY_NOT_INSTALLED' ? <Notice title="The Office tool is not set up yet">Sending coaches to the Office is not available on this computer yet. Ask whoever set up the server to install it. Everything else still works.</Notice> : null}
       {report ? <Report title={report.title} data={report.data} /> : null}
     </div>
   );

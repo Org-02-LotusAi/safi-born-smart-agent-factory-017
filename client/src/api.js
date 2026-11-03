@@ -38,18 +38,49 @@ export async function api(method, path, body) {
 export const get = (p) => api('GET', p);
 export const post = (p, b) => api('POST', p, b ?? {});
 
+const abortError = () => new DOMException('aborted', 'AbortError');
 const sleep = (ms, signal) => new Promise((resolve, reject) => {
-  const t = setTimeout(resolve, ms);
-  signal?.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('aborted', 'AbortError')); }, { once: true });
+  if (signal?.aborted) { reject(abortError()); return; }
+  const onAbort = () => { clearTimeout(t); reject(abortError()); };
+  const t = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve(); }, ms);
+  signal?.addEventListener('abort', onAbort, { once: true });
 });
 
-/** Poll a background job every 2 s until done or failed. Resolves with the final job; throws ApiError if the job failed. */
-export async function pollJob(jobId, onUpdate, signal) {
+/** How long to wait overall for each kind of job (ms). */
+export const JOB_TIMEOUT = { run: 6 * 60_000, train: 6 * 60_000, qualify: 20 * 60_000, deploy: 10 * 60_000 };
+
+const MAX_POLL_ERRORS = 4;
+
+function pollTimeout() {
+  return new ApiError(0, { error: { code: 'POLL_TIMEOUT', message: 'This is taking much longer than expected.', hint: 'It may still be finishing in the background. Wait a few minutes, then reload this page and check again.' } });
+}
+
+/**
+ * Poll a background job every 2 s until done or failed. Resolves with the final job; throws ApiError if the job failed.
+ * Transient errors (network, 5xx, 429) are retried with backoff; definite answers (401, 403, 404 and so on) are thrown at once.
+ * After timeoutMs it gives up with code POLL_TIMEOUT (the job may still be running on the server).
+ */
+export async function pollJob(jobId, onUpdate, signal, timeoutMs = JOB_TIMEOUT.run) {
+  const deadline = Date.now() + timeoutMs;
+  let errors = 0;
   for (;;) {
-    const job = await get(`/jobs/${jobId}`);
+    if (signal?.aborted) throw abortError();
+    let job;
+    try {
+      job = await get(`/jobs/${jobId}`);
+      errors = 0;
+    } catch (e) {
+      if (e?.name === 'AbortError') throw e;
+      const transient = e instanceof ApiError && (e.status === 0 || e.status >= 500 || e.status === 429);
+      if (!transient || ++errors > MAX_POLL_ERRORS) throw e;
+      if (Date.now() > deadline) throw pollTimeout();
+      await sleep(Math.min(2000 * 2 ** errors, 15000), signal);
+      continue;
+    }
     onUpdate?.(job);
     if (job.status === 'done') return job;
     if (job.status === 'failed') throw new ApiError(200, { error: job.error || { message: 'The job failed.', hint: 'Try again.' } });
+    if (Date.now() > deadline) throw pollTimeout();
     await sleep(2000, signal);
   }
 }
