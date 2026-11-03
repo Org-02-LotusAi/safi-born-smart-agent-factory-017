@@ -168,8 +168,8 @@
               "additionalProperties": false,
               "minProperties": 1,
               "properties": {
-                "mustNotMatch": { "type": "array", "items": { "type": "string" } },
-                "mustMatch": { "type": "array", "items": { "type": "string" } },
+                "mustNotMatch": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                "mustMatch": { "type": "array", "items": { "type": "string", "minLength": 1 } },
                 "injectionFlagged": { "type": "boolean" },
                 "sections": { "type": "array", "items": { "type": "string" } }
               }

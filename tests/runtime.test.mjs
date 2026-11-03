@@ -380,3 +380,168 @@ test('a model failure that carries a provider request id keeps it on the FAIL re
   assert.equal(r.provider.requestId, 'req_from_401');
   assert.equal(r.model, 'stub-model');
 }));
+
+// ---------- review fixes: shared format repair (M1) ----------
+/** Stub that returns the given replies in order (last one repeats). */
+function sequence(replies, extra = {}) {
+  const calls = [];
+  const llm = async (args) => {
+    const out = replies[Math.min(calls.length, replies.length - 1)];
+    calls.push(args);
+    if (out instanceof Error) throw out;
+    return { text: typeof out === 'string' ? out : JSON.stringify(out), model: args.model, requestId: `req_seq_${calls.length}`, responseId: `resp_seq_${calls.length}`, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), durationMs: 1, usage: null };
+  };
+  return { llm, calls };
+}
+const runSeq = (id, opts, replies) => {
+  const s = sequence(replies);
+  return run(id, TASK, { ...opts, job: 'job-swe-entry.txt', resumeFile: 'alex-example.resume.txt', llm: s.llm }).then((r) => ({ r, s }));
+};
+
+test('every live call asks for a JSON-schema response; the same schema is sent for runs and for feedback', withAgent(async ({ opts, id }) => {
+  const { s } = await runSeq(id, opts, [good()]);
+  assert.equal(s.calls[0].schemaName, 'run_output');
+  assert.equal(s.calls[0].responseSchema.title, 'SAFI CS Job Search Coach run output');
+}));
+
+test('format repair: a parse slip is retried once, both attempts are recorded, the run PASSES', withAgent(async ({ opts, id }) => {
+  const { r, s } = await runSeq(id, opts, ['{"message": "cut off', good()]);
+  assert.equal(r.status, 'PASS');
+  assert.equal(s.calls.length, 2);
+  assert.equal(r.attempts.length, 1);
+  assert.equal(r.attempts[0].stage, 'parse');
+  assert.equal(r.attempts[0].requestId, 'req_seq_1');
+  assert.equal(r.provider.requestId, 'req_seq_2');
+  assert.deepEqual(getRun(id, r.runId, opts).attempts, r.attempts, 'the saved record keeps the failed attempt');
+}));
+
+test('format repair: a schema slip (renamed key) is retried once; two slips in a row end as a FAIL with both attempts kept', withAgent(async ({ opts, id }) => {
+  const renamed = good();
+  renamed.interviewQuestions[0] = { question: 'Q?', why: 'W', whatGood: 'x' };
+  const ok = await runSeq(id, opts, [renamed, good()]);
+  assert.equal(ok.r.status, 'PASS');
+  assert.equal(ok.r.attempts[0].stage, 'schema');
+  const bad = await runSeq(id, opts, [renamed, renamed, good()]);
+  assert.equal(bad.s.calls.length, 2, 'only one retry, never more');
+  assert.equal(bad.r.status, 'FAIL');
+  assert.equal(bad.r.stage, 'schema');
+  assert.equal(bad.r.attempts.length, 1);
+}));
+
+test('format repair never retries behavioural or post-check failures, or model errors', withAgent(async ({ opts, id }) => {
+  const invented = good({ resumeDraft: { text: 'Worked as an intern.', claims: [{ claim: 'Invented', evidenceIds: ['proj-does-not-exist'] }], flaggedUnknowns: [] } });
+  const a = await runSeq(id, opts, [invented, good()]);
+  assert.equal(a.r.status, 'FAIL');
+  assert.equal(a.r.stage, 'postChecks');
+  assert.equal(a.s.calls.length, 1);
+  assert.equal(a.r.attempts, undefined);
+  const b = await runSeq(id, opts, [new Error('boom'), good()]);
+  assert.equal(b.r.status, 'FAIL');
+  assert.equal(b.r.stage, 'model');
+  assert.equal(b.s.calls.length, 1);
+}));
+
+test('format repair: retries can be switched off (formatRetries: 0)', withAgent(async ({ opts, id }) => {
+  const s = sequence(['not json at all', good()]);
+  const r = await run(id, TASK, { ...opts, job: 'job-swe-entry.txt', llm: s.llm, formatRetries: 0 });
+  assert.equal(r.status, 'FAIL');
+  assert.equal(s.calls.length, 1);
+}));
+
+test('format repair also covers interview feedback and sends the feedback schema', withAgent(async ({ opts, id }) => {
+  const { r } = await runWith(id, opts, good());
+  const fb = { feedback: 'Good start.', strengths: ['Specific'], improvements: ['Add numbers'], evidenceIds: ['proj-capstone-scheduler'], safety: { injectionDetected: false, ignoredInstructions: [] } };
+  const s = sequence(['{"feedback": "oops', fb]);
+  const rec = await interviewFeedback(id, { runId: r.runId, questionIndex: 0, answer: 'I wrote the booking API.' }, { ...opts, llm: s.llm });
+  assert.equal(rec.status, 'PASS');
+  assert.equal(s.calls.length, 2);
+  assert.equal(rec.attempts.length, 1);
+  assert.equal(rec.attempts[0].stage, 'parse');
+  assert.equal(s.calls[0].schemaName, 'feedback_output');
+  // an invented evidence id is a post-check failure and is not retried
+  const s2 = sequence([{ ...fb, evidenceIds: ['proj-invented'] }, fb]);
+  const rec2 = await interviewFeedback(id, { runId: r.runId, questionIndex: 0, answer: 'I wrote the booking API.' }, { ...opts, llm: s2.llm });
+  assert.equal(rec2.status, 'FAIL');
+  assert.equal(s2.calls.length, 1);
+}));
+
+test('runBehavioralTest evidence carries the format-repair attempts', async () => {
+  const s = sequence(['{"cut', good()]);
+  const { effective } = compile(T2, { root: REPO });
+  const t = effective.tests.find((x) => x.kind === 'behavioral');
+  const r = await runBehavioralTest(effective, { ...t, expect: { sections: ['matchTable'] } }, { root: REPO, model: 'stub-model', llm: s.llm });
+  assert.equal(r.status, 'PASS');
+  assert.match(r.evidence.attempts[0].reasons[0], /^\[parse\]/);
+});
+
+// ---------- review fixes: policy enforcement (capstone-not-employment and the rest) ----------
+import { POLICIES, POLICY_ENFORCEMENT } from '../lib/policies.mjs';
+import { policyPostChecks, capstoneNotEmploymentFailures, POST_CHECK_POLICIES } from '../lib/runtime.mjs';
+
+test('every allowlisted policy id is enforced by a post-check or documented as enforced by structure', () => {
+  assert.deepEqual(Object.keys(POLICY_ENFORCEMENT).sort(), [...POLICIES].sort());
+  for (const [id, e] of Object.entries(POLICY_ENFORCEMENT)) {
+    assert.ok(['post-check', 'structure'].includes(e.kind), id);
+    assert.ok(e.how.length > 20, `${id} explains how it is enforced`);
+  }
+  assert.deepEqual(Object.entries(POLICY_ENFORCEMENT).filter(([, e]) => e.kind === 'post-check').map(([id]) => id).sort(), [...POST_CHECK_POLICIES].sort());
+});
+
+const draftOf = (text, claims = []) => good({ resumeDraft: { text, claims: claims.map((c) => ({ claim: c, evidenceIds: ['proj-capstone-scheduler'] })), flaggedUnknowns: [] } });
+
+test('capstone-not-employment post-check: flags a project presented as paid work, an internship or years of experience', () => {
+  const bad = [
+    'Worked as a software engineer on the capstone scheduler.',
+    'Capstone project: paid position building the booking API.',
+    'Two years of work experience from my senior capstone.',
+    'Completed a software engineering internship through the capstone project.',
+    'Capstone scheduler, 2 years of experience building APIs.',
+    'My class project was my full-time job for a semester.'
+  ];
+  for (const text of bad) {
+    const f = policyPostChecks({ output: draftOf(text), policies: ['capstone-not-employment'] });
+    assert.equal(f.length, 1, text);
+    assert.match(f[0], /capstone-not-employment/);
+  }
+  assert.equal(policyPostChecks({ output: draftOf('Plain.', ['Built the booking API for the capstone (an employer would call this paid work)']), policies: ['capstone-not-employment'] }).length, 1, 'claims are checked too');
+});
+
+test('capstone-not-employment post-check: honest academic wording passes, and it is off when no constraint names the policy', () => {
+  const ok = draftOf('Senior capstone (academic team project): built a booking API in Python and Flask. Unpaid class project, not employment.', ['Built the booking API for the capstone scheduler (academic project)']);
+  assert.deepEqual(policyPostChecks({ output: ok, policies: ['capstone-not-employment'] }), []);
+  assert.deepEqual(capstoneNotEmploymentFailures(['Held a paid internship at Northwind.']), [], 'no project mentioned: not this policy');
+  assert.deepEqual(policyPostChecks({ output: draftOf('Worked as a software engineer on the capstone.'), policies: ['evidence-citation'] }), [], 'conditional on the policy being in force');
+});
+
+test('identity-disclosure post-check: the agent may not claim to be a person (only when the policy is in force)', () => {
+  const o = good({ message: "I'm a recruiter and I will look after your application." });
+  assert.equal(policyPostChecks({ output: o, policies: ['identity-disclosure'] }).length, 1);
+  assert.deepEqual(policyPostChecks({ output: o, policies: [] }), []);
+  assert.deepEqual(policyPostChecks({ output: good({ message: 'I am an AI assistant. A human reviews nothing until you approve.' }), policies: ['identity-disclosure'] }), []);
+});
+
+test('a run on a template whose constraints name capstone-not-employment FAILS in the post-check stage; T2 1.0.0 is unaffected', async () => {
+  const root = makeRoot();
+  try {
+    const t2 = JSON.parse(readFileSync(path.join(root, 'templates', `${T2}.json`), 'utf8'));
+    addTemplate(root, {
+      kind: 'template', id: t2.id, version: '1.0.1', title: t2.title, description: t2.description,
+      parent: { id: t2.id, version: '1.0.0' },
+      refinement: { addConstraints: [{ id: 'capstone-not-employment', text: 'A capstone or class project is never paid employment or years of experience.', policy: 'capstone-not-employment' }] },
+      parameterSchema: {}, tests: [], knowledgeRefs: [], skillRefs: [], digest: ''
+    });
+    const opts = { root, model: 'stub-model' };
+    const m = instantiate(`${t2.id}@1.0.1`, profile(), opts);
+    const violating = draftOf('Capstone scheduler: two years of work experience building the booking API.', ['Built the booking API for the capstone']);
+    const r = await runWith(m.instanceId, opts, violating).then((x) => x.r);
+    assert.equal(r.status, 'FAIL');
+    assert.equal(r.stage, 'postChecks');
+    assert.match(r.reasons.join('\n'), /Policy capstone-not-employment/);
+    const same = await runWith(instantiate(T2, profile(), opts).instanceId, opts, violating).then((x) => x.r);
+    assert.ok(!same.reasons.some((x) => /capstone-not-employment/.test(x)), 'the policy is only enforced where a constraint names it');
+    const ok = await runWith(m.instanceId, opts, good()).then((x) => x.r);
+    assert.equal(ok.status, 'PASS');
+  } finally {
+    cleanup(root);
+  }
+});

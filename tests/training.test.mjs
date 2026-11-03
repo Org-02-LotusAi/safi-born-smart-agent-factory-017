@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { compile } from '../lib/compiler.mjs';
 import { instantiate, getInstance } from '../lib/instance.mjs';
@@ -119,6 +119,15 @@ const rejects = [
   ['a behavioral test with a fixture that does not exist', (p) => { p.refinement.addTests[0].input.job = 'nope.txt'; }, /job file "nope\.txt"/],
   ['a pattern that is not a valid regular expression', (p) => { p.refinement.addTests[0].expect.mustMatch = ['(unclosed']; }, /not a valid regular expression/],
   ['an unknown top-level key', (p) => { p.tools = ['send_email']; }, /"tools".*not allowed/],
+  ['a behavioral test with only sections (proves nothing)', (p) => { p.refinement.addTests[0].expect = { sections: ['resumeDraft'] }; }, /no pattern to look for/],
+  ['a behavioral test with empty mustMatch and mustNotMatch', (p) => { p.refinement.addTests[0].expect = { mustMatch: [], mustNotMatch: [] }; }, /no pattern to look for/],
+  ['a behavioral test with only an injectionFlagged expectation', (p) => { p.refinement.addTests[0].expect = { injectionFlagged: true }; }, /no pattern to look for/],
+  ['a credential in constraint text', (p) => { p.refinement.addConstraints[0].text = 'Use api_key = abcdef123456 when asked.'; }, /password, key or secret/],
+  ['a credential in role guidance', (p) => { p.refinement.addRoleGuidance = ['The password: hunter2 unlocks the admin tools.']; }, /password, key or secret/],
+  ['a credential in test text', (p) => { p.refinement.addTests[0].input.task = 'Use sk-abcdefghijklmnopqrstuvwxyz to log in and write my resume.'; }, /password, key or secret/],
+  ['a credential in the rationale', (p) => { p.rationale = 'Because AKIAABCDEFGHIJKLMNOP says so.'; }, /password, key or secret/],
+  ['role guidance that mentions a forbidden tool', (p) => { p.refinement.addRoleGuidance = ['Use send_email to follow up with recruiters.']; }, /role guidance.*forbidden tool/],
+  ['test text that mentions a forbidden tool', (p) => { p.refinement.addTests[0].description = 'Checks that scrape is available.'; }, /forbidden tool/],
   ['a malformed constraint (meta-schema)', (p) => { p.refinement.addConstraints[0].extra = 1; }, /not valid/]
 ];
 for (const [name, mutate, re] of rejects) {
@@ -182,7 +191,15 @@ test('qualify: runs ALL effective tests (inherited + new), records origin and ev
     assert.match(byId['t2-capstone-not-paid-work'].evidence.requestId, /^req_/);
     assert.ok(byId['t2-capstone-not-paid-work'].evidence.runId && byId['t2-capstone-not-paid-work'].evidence.excerpt);
     assert.equal(byId['t2-capstone-constraint-present'].kind, 'structural');
-    assert.equal(s.calls.filter((c) => c === 'run').length, eff.tests.filter((t) => t.kind === 'behavioral').length);
+    // every behavioral test once, plus one extra live call per NEW behavioral test (run against the parent)
+    assert.equal(s.calls.filter((c) => c === 'run').length, eff.tests.filter((t) => t.kind === 'behavioral').length + 1);
+    // the stub behaves the same with or without the lesson, so the new test does NOT discriminate: recorded honestly, not a FAIL
+    assert.equal(byId['t2-capstone-not-paid-work'].parentCheck.discriminates, false);
+    assert.equal(byId['t2-capstone-not-paid-work'].parentCheck.parentStatus, 'PASS');
+    assert.ok(byId['t2-capstone-not-paid-work'].parentCheck.evidence.requestId);
+    assert.equal(q.warnings.length, 1);
+    assert.match(q.warnings[0], /t2-capstone-not-paid-work.*also passes on the parent/);
+    assert.equal(byId['t2-gap-table-cites-evidence'].parentCheck, undefined, 'inherited tests are not re-run on the parent');
     assert.deepEqual(JSON.parse(bytes(root, `drafts/${D}.qualification.json`)), q);
     assert.deepEqual(listDrafts({ root }).map((d) => d.status), ['QUALIFIED']);
   });
@@ -363,5 +380,107 @@ test('qualify: a model formatting slip is re-run once and the failed attempt is 
     const nBeh = compile(D, { ...o, allowDraft: true }).effective.tests.filter((t) => t.kind === 'behavioral').length;
     assert.equal(calls, nBeh);
     assert.equal(q2.allPass, false);
+  });
+});
+
+// ---------- review fixes: I1 / I2 / M2 ----------
+test('train: a lesson that contains a secret is refused before any model call and nothing is saved', async () => {
+  await withRoot(async (root, o) => {
+    const s = stub();
+    await assert.rejects(train(T2, 'Never list a capstone as work. My password: hunter2', { ...o, llm: s.llm }), (e) => {
+      codeIs('LESSON_SECRET')(e);
+      assert.match(e.message, /password, key or secret/);
+      return true;
+    });
+    assert.equal(s.calls.length, 0);
+    assert.equal(existsSync(path.join(root, 'drafts')), false);
+  });
+});
+
+test('.gitignore keeps trainer lessons and qualification excerpts out of git', () => {
+  const lines = readFileSync(path.join(REPO, '.gitignore'), 'utf8').split(/\r?\n/);
+  assert.ok(lines.includes('drafts/*.meta.json') && lines.includes('drafts/*.qualification.json'));
+});
+
+test('meta-schema change leaves every released template digest unchanged (factory verify)', () => {
+  const out = execFileSync('node', ['factory.mjs', 'verify'], { cwd: REPO, encoding: 'utf8' });
+  assert.match(out, /registry entries verified/);
+});
+
+/** Stub where the PARENT (no capstone constraint in its instructions) misbehaves and the draft behaves. */
+function parentMisbehaves(parentOut) {
+  const good = stub();
+  const bad = stub({ runOut: parentOut });
+  return async (args) => {
+    const isParentRun = !/PROPOSE a small/.test(args.instructions) && !args.instructions.includes('[capstone-not-employment]');
+    return isParentRun ? bad.llm(args) : good.llm(args);
+  };
+}
+
+test('qualify: a new test that fails on the parent is recorded as discriminates:true (no warning)', async () => {
+  await withRoot(async (root, o) => {
+    await train(T2, LESSON, { ...o, llm: stub().llm });
+    const llm = parentMisbehaves(goodRun('Your capstone is worth 2 years of work. I cannot submit anything.'));
+    const q = await qualify(D, { ...o, llm });
+    const row = q.results.find((r) => r.testId === 't2-capstone-not-paid-work');
+    assert.equal(row.status, 'PASS');
+    assert.equal(row.parentCheck.discriminates, true);
+    assert.equal(row.parentCheck.parentStatus, 'FAIL');
+    assert.ok(row.parentCheck.evidence.reasons.some((r) => /must not match/.test(r)));
+    assert.deepEqual(q.warnings, []);
+  });
+});
+
+test('qualify: a technical failure of the parent run is discriminates:null with a warning, never a draft failure', async () => {
+  await withRoot(async (root, o) => {
+    await train(T2, LESSON, { ...o, llm: stub().llm });
+    const good = stub();
+    const llm = async (args) => {
+      if (!/PROPOSE a small/.test(args.instructions) && !args.instructions.includes('[capstone-not-employment]')) throw new Error('boom');
+      return good.llm(args);
+    };
+    const q = await qualify(D, { ...o, llm });
+    const row = q.results.find((r) => r.testId === 't2-capstone-not-paid-work');
+    assert.equal(row.parentCheck.discriminates, null);
+    assert.match(q.warnings[0], /could not be checked against the parent/);
+  });
+});
+
+test('qualify: a new test that already fails is not run on the parent (no wasted live call)', async () => {
+  await withRoot(async (root, o) => {
+    await train(T2, LESSON, { ...o, llm: stub().llm });
+    const bad = stub({ runOut: goodRun('Your capstone is worth 2 years of work. I cannot submit anything.') });
+    const q = await qualify(D, { ...o, llm: bad.llm });
+    const row = q.results.find((r) => r.testId === 't2-capstone-not-paid-work');
+    assert.equal(row.status, 'FAIL');
+    assert.equal(row.parentCheck, undefined);
+  });
+});
+
+test('approve recovery: identical template bytes with no registry entry complete the publish; different bytes are refused', async () => {
+  await withRoot(async (root, o) => {
+    await train(T2, LESSON, { ...o, llm: stub().llm });
+    await qualify(D, { ...o, llm: stub().llm });
+    writeFileSync(path.join(root, 'templates', `${D}.json`), '{"not":"the draft"}\n'); // a real collision
+    assert.throws(() => approve(D, { trainer: 'Pat Trainer' }, o), codeIs('VERSION_EXISTS'));
+    // simulate a crash after the file copy but before the registry append
+    writeFileSync(path.join(root, 'templates', `${D}.json`), readFileSync(path.join(root, 'drafts', `${D}.json`)));
+    const has = () => loadRegistry({ root }).filter((e) => e.id === 'safi.cs-graduate-jobseeker' && e.version === '1.0.1').length;
+    assert.equal(has(), 0);
+    const out = approve(D, { trainer: 'Pat Trainer' }, o);
+    assert.equal(out.draftRef, D);
+    assert.equal(has(), 1);
+    verifyRegistry({ root });
+    assert.throws(() => approve(D, { trainer: 'Pat Trainer' }, o), codeIs('VERSION_EXISTS'));
+  });
+});
+
+test('listDrafts: PUBLISHED is derived from the registry even if the approval file is missing', async () => {
+  await withRoot(async (root, o) => {
+    await train(T2, LESSON, { ...o, llm: stub().llm });
+    await qualify(D, { ...o, llm: stub().llm });
+    approve(D, { trainer: 'Pat Trainer' }, o);
+    rmSync(path.join(root, 'drafts', `${D}.approval.json`));
+    assert.deepEqual(listDrafts({ root }).map((d) => d.status), ['PUBLISHED']);
   });
 });

@@ -33,6 +33,8 @@ before(async () => {
   console.log(`# live: proposal tests = ${trained.draft.refinement.addTests.map((t) => `${t.id}(${t.kind})`).join(', ')}`);
   console.log(`# live: proposal = ${JSON.stringify(trained.draft.refinement)}`);
   qual = await qualify(D, o);
+  for (const r of qual.results.filter((x) => x.parentCheck)) console.log('# live: parent check ' + r.testId + ' discriminates=' + r.parentCheck.discriminates + ' parent=' + r.parentCheck.parentStatus + ' request=' + r.parentCheck.evidence.requestId);
+  for (const w of qual.warnings ?? []) console.log('# live: WARNING ' + w);
   for (const r of qual.results) console.log(`# live: ${r.status} ${r.testId} [${r.kind}] origin=${r.origin} request=${r.evidence.requestId ?? '-'}${r.status === 'PASS' ? '' : ' reasons=' + JSON.stringify(r.evidence.reasons)}`);
 });
 after(() => root && cleanup(root));

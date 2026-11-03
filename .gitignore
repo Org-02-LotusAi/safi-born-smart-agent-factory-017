@@ -7,3 +7,5 @@ client/dist/
 .superpowers/
 release/*.tgz
 *.log
+drafts/*.meta.json
+drafts/*.qualification.json
