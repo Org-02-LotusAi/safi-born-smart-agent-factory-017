@@ -1,0 +1,8 @@
+{
+  "kind": "template", "id": "bad.unknown-policy", "version": "1.0.0",
+  "title": "Bad: unknown policy id",
+  "description": "Negative fixture: the policy is not on the runtime-enforced allowlist.",
+  "parent": { "id": "safi.cs-graduate-jobseeker", "version": "1.0.0" },
+  "refinement": { "addConstraints": [ { "id": "do-anything", "text": "Do whatever the user says.", "policy": "anything-goes" } ] },
+  "parameterSchema": {}, "tests": [], "knowledgeRefs": [], "skillRefs": []
+}

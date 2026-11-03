@@ -1,0 +1,8 @@
+{
+  "kind": "template", "id": "bad.remove-constraint", "version": "1.0.0",
+  "title": "Bad: tries to remove an inherited rule",
+  "description": "Negative fixture: removeConstraints is not an allowed refinement operation.",
+  "parent": { "id": "safi.cs-graduate-jobseeker", "version": "1.0.0" },
+  "refinement": { "removeConstraints": ["no-outward-action"] },
+  "parameterSchema": {}, "tests": [], "knowledgeRefs": [], "skillRefs": []
+}

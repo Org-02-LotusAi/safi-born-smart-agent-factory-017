@@ -1,0 +1,8 @@
+{
+  "kind": "template", "id": "bad.field-collision", "version": "1.0.0",
+  "title": "Bad: redefines an inherited parameter field",
+  "description": "Negative fixture: candidateName is already defined by the root template.",
+  "parent": { "id": "safi.cs-graduate-jobseeker", "version": "1.0.0" },
+  "refinement": { "addParameterFields": { "properties": { "candidateName": { "type": "string" } } } },
+  "parameterSchema": {}, "tests": [], "knowledgeRefs": [], "skillRefs": []
+}

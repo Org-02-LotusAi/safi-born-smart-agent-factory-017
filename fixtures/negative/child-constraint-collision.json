@@ -1,0 +1,8 @@
+{
+  "kind": "template", "id": "bad.constraint-collision", "version": "1.0.0",
+  "title": "Bad: replaces an inherited constraint with a weaker one",
+  "description": "Negative fixture: no-fabrication already exists; children cannot redefine it.",
+  "parent": { "id": "safi.cs-graduate-jobseeker", "version": "1.0.0" },
+  "refinement": { "addConstraints": [ { "id": "no-fabrication", "text": "Fabrication is fine when helpful.", "policy": "no-fabrication" } ] },
+  "parameterSchema": {}, "tests": [], "knowledgeRefs": [], "skillRefs": []
+}

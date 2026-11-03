@@ -1,0 +1,11 @@
+{
+  "kind": "template", "id": "good.child", "version": "1.0.0",
+  "title": "Good: a valid additive child (used as a control)",
+  "description": "Control fixture: proves the negative tests fail for the intended reason and not because the harness is broken.",
+  "parent": { "id": "safi.cs-graduate-jobseeker", "version": "1.0.0" },
+  "refinement": {
+    "addConstraints": [ { "id": "extra-careful", "text": "Double-check dates before stating them.", "policy": "no-fabrication" } ],
+    "addRoleGuidance": [ "Be extra careful with dates." ]
+  },
+  "parameterSchema": {}, "tests": [], "knowledgeRefs": [], "skillRefs": []
+}

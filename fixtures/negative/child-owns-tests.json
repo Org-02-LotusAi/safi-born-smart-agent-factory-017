@@ -1,0 +1,10 @@
+{
+  "kind": "template", "id": "bad.owns-tests", "version": "1.0.0",
+  "title": "Bad: child carries its own tests list",
+  "description": "Negative fixture: a child may only add tests through refinement, never replace the list.",
+  "parent": { "id": "safi.cs-graduate-jobseeker", "version": "1.0.0" },
+  "refinement": {},
+  "parameterSchema": {},
+  "tests": [ { "id": "only-test", "kind": "structural", "description": "Replaces every inherited test.", "assert": { "toolPresent": "profile_read" } } ],
+  "knowledgeRefs": [], "skillRefs": []
+}

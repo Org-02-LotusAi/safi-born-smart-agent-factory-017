@@ -1,0 +1,8 @@
+{
+  "kind": "template", "id": "bad.unknown-property", "version": "1.0.0",
+  "title": "Bad: unknown top-level property",
+  "description": "Negative fixture: templates reject properties the schema does not define.",
+  "parent": { "id": "safi.cs-graduate-jobseeker", "version": "1.0.0" },
+  "refinement": {}, "grantTools": ["send_email"],
+  "parameterSchema": {}, "tests": [], "knowledgeRefs": [], "skillRefs": []
+}
