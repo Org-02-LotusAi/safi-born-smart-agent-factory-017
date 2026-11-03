@@ -42,9 +42,11 @@ export function collectFiles() {
   return [...all].filter((f) => !SKIP.some((re) => re.test(f))).sort();
 }
 
-function git(args) {
+function git(args, trim = true) {
   try {
-    return execFileSync('git', args, { cwd: REPO, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const out = execFileSync('git', args, { cwd: REPO, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+    return trim ? out.trim() : out.replace(/
++$/, '');
   } catch {
     return null;
   }
@@ -53,7 +55,7 @@ function git(args) {
 /** Dirty = any tracked change or untracked file other than the release outputs this script and acceptance.mjs write. */
 export function gitState() {
   const sha = git(['rev-parse', 'HEAD']);
-  const porcelain = git(['status', '--porcelain']);
+  const porcelain = git(['status', '--porcelain'], false);
   if (sha === null || porcelain === null) return { gitSha: sha, dirty: null, dirtyFiles: null };
   const generated = [MANIFEST_PATH, 'ACCEPTANCE.json', 'evidence/', 'service-expert.manifest.json'];
   const dirtyFiles = porcelain
@@ -106,8 +108,7 @@ function updateExpertManifest(m) {
   e.source.dirty = m.dirty;
   e.source.releaseManifestFilesSha256 = m.filesSha256;
   for (const doc of Object.values(e.documents)) if ('sha256' in doc) doc.sha256 = fileSha(doc.path);
-  writeFileSync(file, JSON.stringify(e, null, 2) + '
-');
+  writeFileSync(file, JSON.stringify(e, null, 2) + '\n');
   return true;
 }
 
