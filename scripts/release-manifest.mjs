@@ -61,7 +61,7 @@ export function gitState() {
     .split('\n')
     .filter(Boolean)
     .map((l) => l.slice(3).replace(/^"|"$/g, ''))
-    .filter((f) => !generated.some((g) => f === g || f.startsWith(g)));
+    .filter((f) => !generated.some((g) => f === g || f.startsWith(g) || g.startsWith(f)));
   return { gitSha: sha, dirty: dirtyFiles.length > 0, dirtyFiles };
 }
 
