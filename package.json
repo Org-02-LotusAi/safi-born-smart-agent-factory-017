@@ -5,6 +5,9 @@
   "type": "module",
   "description": "SAFI Service 017: Born-Smart Agent Factory",
   "scripts": {
+    "build": "npm --prefix client run build",
+    "dev": "npm --prefix client run dev",
+    "setup": "npm ci && npm --prefix client ci && npm run build",
     "test": "node --test \"tests/*.test.mjs\"",
     "verify": "node factory.mjs verify",
     "start": "node --env-file-if-exists=.env server/index.mjs",
