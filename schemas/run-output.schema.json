@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://safi.example/schemas/run-output.schema.json",
+  "title": "SAFI CS Job Search Coach run output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["matchTable", "resumeDraft", "interviewQuestions", "sevenDayPlan", "safety", "sourcesUsed"],
+  "properties": {
+    "matchTable": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requirement", "evidence", "evidenceIds", "status"],
+        "properties": {
+          "requirement": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "string" },
+          "evidenceIds": { "type": "array", "items": { "type": "string" } },
+          "status": { "enum": ["met", "partial", "gap", "unknown"] }
+        }
+      }
+    },
+    "resumeDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "claims", "flaggedUnknowns"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim", "evidenceIds"],
+            "properties": {
+              "claim": { "type": "string", "minLength": 1 },
+              "evidenceIds": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "flaggedUnknowns": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "interviewQuestions": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question", "why", "whatGoodLooksLike"],
+        "properties": {
+          "question": { "type": "string", "minLength": 1 },
+          "why": { "type": "string", "minLength": 1 },
+          "whatGoodLooksLike": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "sevenDayPlan": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["day", "actions"],
+        "properties": {
+          "day": { "type": "integer", "minimum": 1, "maximum": 7 },
+          "actions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["injectionDetected", "ignoredInstructions"],
+      "properties": {
+        "injectionDetected": { "type": "boolean" },
+        "ignoredInstructions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "sourcesUsed": { "type": "array", "items": { "type": "string" } }
+  }
+}

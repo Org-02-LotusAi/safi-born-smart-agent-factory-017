@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://safi.example/schemas/template.meta.schema.json",
+  "title": "SAFI Template Object",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "id", "version", "title", "description", "parent", "refinement", "parameterSchema", "tests", "knowledgeRefs", "skillRefs", "digest"],
+  "properties": {
+    "kind": { "const": "template" },
+    "id": { "$ref": "#/$defs/templateId" },
+    "version": { "$ref": "#/$defs/semver" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "parent": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "version", "sha256"],
+          "properties": {
+            "id": { "$ref": "#/$defs/templateId" },
+            "version": { "$ref": "#/$defs/semver" },
+            "sha256": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      ]
+    },
+    "refinement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "addKnowledgeRefs": { "type": "array", "items": { "$ref": "#/$defs/knowledgeRef" } },
+        "addSkillRefs": { "type": "array", "items": { "$ref": "#/$defs/skillRef" } },
+        "addConstraints": { "type": "array", "items": { "$ref": "#/$defs/constraint" } },
+        "addTests": { "type": "array", "items": { "$ref": "#/$defs/test" } },
+        "addParameterFields": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "properties": { "type": "object", "additionalProperties": { "type": "object" } },
+            "required": { "type": "array", "items": { "$ref": "#/$defs/fieldName" }, "uniqueItems": true }
+          }
+        },
+        "addRoleGuidance": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "parameterSchema": { "type": "object" },
+    "tests": { "type": "array", "items": { "$ref": "#/$defs/test" } },
+    "knowledgeRefs": { "type": "array", "items": { "$ref": "#/$defs/knowledgeRef" } },
+    "skillRefs": { "type": "array", "items": { "$ref": "#/$defs/skillRef" } },
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["constraints", "tools", "roleGuidance", "policies"],
+      "properties": {
+        "constraints": { "type": "array", "items": { "$ref": "#/$defs/constraint" } },
+        "tools": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "roleGuidance": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "policies": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "digest": { "$ref": "#/$defs/sha256" }
+  },
+  "if": { "type": "object", "properties": { "parent": { "type": "null" } }, "required": ["parent"] },
+  "then": {
+    "required": ["base"],
+    "properties": { "base": { "type": "object" }, "refinement": { "type": "object", "maxProperties": 0 } }
+  },
+  "else": {
+    "not": { "required": ["base"] },
+    "properties": {
+      "base": true,
+      "parameterSchema": { "type": "object", "maxProperties": 0 },
+      "tests": { "type": "array", "maxItems": 0 },
+      "knowledgeRefs": { "type": "array", "maxItems": 0 },
+      "skillRefs": { "type": "array", "maxItems": 0 }
+    }
+  },
+  "$defs": {
+    "templateId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$" },
+    "semver": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "fieldName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
+    "itemId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" },
+    "skillRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "sha256"],
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "version": { "$ref": "#/$defs/semver" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "knowledgeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "policy"],
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "text": { "type": "string", "minLength": 1 },
+        "policy": { "type": "string", "minLength": 1 }
+      }
+    },
+    "test": {
+      "type": "object",
+      "required": ["id", "kind", "description"],
+      "properties": {
+        "id": { "$ref": "#/$defs/itemId" },
+        "kind": { "enum": ["structural", "behavioral"] },
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind", "description", "assert"],
+          "properties": {
+            "id": true,
+            "kind": { "const": "structural" },
+            "description": true,
+            "assert": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "maxProperties": 1,
+              "properties": {
+                "constraintPresent": { "type": "string" },
+                "toolAbsent": { "type": "string" },
+                "toolPresent": { "type": "string" },
+                "skillPresent": { "type": "string" },
+                "knowledgePresent": { "type": "string" },
+                "parameterRequired": { "type": "string" }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind", "description", "input", "expect"],
+          "properties": {
+            "id": true,
+            "kind": { "const": "behavioral" },
+            "description": true,
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["profile", "job", "task"],
+              "properties": {
+                "profile": { "type": "string", "minLength": 1 },
+                "job": { "type": "string", "minLength": 1 },
+                "task": { "type": "string", "minLength": 1 }
+              }
+            },
+            "expect": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "mustNotMatch": { "type": "array", "items": { "type": "string" } },
+                "mustMatch": { "type": "array", "items": { "type": "string" } },
+                "injectionFlagged": { "type": "boolean" },
+                "sections": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
