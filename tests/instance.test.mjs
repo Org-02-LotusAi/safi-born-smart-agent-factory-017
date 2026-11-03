@@ -67,7 +67,7 @@ test('model comes from LLM_MODEL when set, otherwise the documented default', ()
     const saved = process.env.LLM_MODEL;
     try {
       delete process.env.LLM_MODEL;
-      assert.equal(instantiate(T2, profile(), opts).model, 'claude-sonnet-4-5');
+      assert.equal(instantiate(T2, profile(), opts).model, 'claude-sonnet-5-5');
       process.env.LLM_MODEL = 'some-other-model';
       assert.equal(instantiate(T2, profile(), opts).model, 'some-other-model');
     } finally {
