@@ -341,3 +341,27 @@ test('the real repo still has only T2@1.0.0 (tests never publish into it)', () =
   assert.equal(loadRegistry({ root: REPO }).filter((e) => e.kind === 'template' && e.id === 'safi.cs-graduate-jobseeker').length, 1);
   assert.equal(existsSync(path.join(REPO, 'templates', `${D}.json`)), false);
 });
+
+test('qualify: a model formatting slip is re-run once and the failed attempt is kept as evidence; a behavioral FAIL is not retried', async () => {
+  await withRoot(async (root, o) => {
+    await train(T2, LESSON, { ...o, llm: stub().llm });
+    let n = 0;
+    const flaky = async (args) => {
+      const r = await stub().llm(args);
+      if (!/PROPOSE a small/.test(args.instructions) && ++n === 3) return { ...r, text: '{"cut off' };
+      return r;
+    };
+    const q = await qualify(D, { ...o, llm: flaky });
+    assert.equal(q.allPass, true, JSON.stringify(q.results.filter((r) => r.status !== 'PASS')));
+    const retried = q.results.filter((r) => r.evidence.attempts);
+    assert.equal(retried.length, 1);
+    assert.match(retried[0].evidence.attempts[0].reasons[0], /^\[parse\]/);
+    // a genuine behavioral failure is never retried
+    let calls = 0;
+    const bad = stub({ runOut: goodRun('Your capstone is worth 2 years of work. I cannot submit anything.') });
+    const q2 = await qualify(D, { ...o, llm: async (a) => { if (!/PROPOSE a small/.test(a.instructions)) calls++; return bad.llm(a); } });
+    const nBeh = compile(D, { ...o, allowDraft: true }).effective.tests.filter((t) => t.kind === 'behavioral').length;
+    assert.equal(calls, nBeh);
+    assert.equal(q2.allPass, false);
+  });
+});
