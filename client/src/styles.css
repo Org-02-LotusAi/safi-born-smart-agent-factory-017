@@ -235,8 +235,8 @@ legend { font-weight: 600; color: var(--ink); padding: 0; margin-bottom: .35rem;
 
 @media (max-width: 860px) {
   .signin { grid-template-columns: 1fr; } .signin-art { display: none; }
-  .split { grid-template-columns: 1fr; } .split > aside { position: static; }
-  .resume-grid { grid-template-columns: 1fr; }
+  .split { grid-template-columns: minmax(0, 1fr); } .split > aside { position: static; } .split > * { min-width: 0; }
+  .resume-grid { grid-template-columns: minmax(0, 1fr); } .resume-grid > * { min-width: 0; }
 }
 @media (max-width: 560px) {
   .form-grid, .repeat { grid-template-columns: 1fr; }

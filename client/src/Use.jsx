@@ -27,7 +27,11 @@ function Create({ templates, initialTemplate, onCreated, onCancel, canCancel }) 
     try {
       const d = await get('/fixtures/demo');
       setForm(fromProfile(d.profile)); setDemo(true); setProblems([]);
-      if (!initialTemplate && templates.some((t) => t.ref === d.templateRef)) setTpl(d.templateRef);
+      // Keep the version the person chose (for example a newer 1.0.1); only switch if they picked a different coach entirely.
+      const demoId = String(d.templateRef).split('@')[0];
+      if (!initialTemplate && templates.some((t) => t.ref === d.templateRef)) {
+        setTpl((cur) => (String(cur).split('@')[0] === demoId ? cur : d.templateRef));
+      }
     } catch (e) { setError(e); } finally { setLoadingDemo(false); }
   };
   const submit = async (e) => {
