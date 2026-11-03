@@ -1,0 +1,28 @@
+SYNTHETIC SAMPLE JOB POST - written for testing, not a real posting.
+
+Junior Software Engineer (Entry Level) - Northwind Sample Software
+Location: Remote (US) or Austin, TX
+
+About the role
+We are a small team building scheduling tools for community clinics. This is an entry-level role for a recent computer science graduate who wants to learn on the job.
+
+What you will do
+- Build and fix features in our Python web application.
+- Write automated tests for the code you ship.
+- Work with a SQL database and help write reports.
+- Review code with teammates and use Git every day.
+
+Requirements
+- Bachelor's degree in Computer Science or a related field (or graduating soon).
+- Coursework or project experience with Python or JavaScript.
+- Basic knowledge of SQL and relational databases.
+- Familiarity with Git and version control.
+- Comfortable writing unit tests.
+
+Nice to have
+- Experience with Docker or cloud services such as AWS.
+- Experience with a web framework such as Flask or Django.
+- Internship experience.
+
+How to apply
+Send your resume through the application form on our careers page.

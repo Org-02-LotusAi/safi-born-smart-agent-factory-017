@@ -1,0 +1,24 @@
+SYNTHETIC SAMPLE JOB POST - written for testing, not a real posting.
+
+QA Analyst, Entry Level - Contoso Sample Health Tech
+Location: Austin, TX (hybrid)
+
+About the role
+Join a quality team that checks a patient-scheduling product before every release.
+
+What you will do
+- Write and run manual and automated test cases.
+- Report bugs clearly with steps to reproduce.
+- Query a SQL database to confirm that data is saved correctly.
+- Work with developers to confirm fixes.
+
+Requirements
+- Degree in Computer Science, Information Systems or similar.
+- Attention to detail and clear written communication.
+- Basic SQL.
+- Some experience writing tests in any language (class projects count).
+
+Nice to have
+- Experience with Selenium or Cypress.
+- 1+ year of QA or software testing experience.
+- Knowledge of Agile and Jira.

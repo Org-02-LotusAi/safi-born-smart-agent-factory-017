@@ -8,11 +8,14 @@ import { FactoryError } from './lib/canonical.mjs';
 import { compile } from './lib/compiler.mjs';
 import { instantiate, listInstances, getInstance } from './lib/instance.mjs';
 import { loadRegistry, verifyRegistry } from './lib/registry.mjs';
+import { run as runAgent, approveOutput } from './lib/runtime.mjs';
 
 // ---- Library API (extension point: add `export * from './lib/<module>.mjs'` or named re-exports) ----
 export { compile, runStructuralTests, checkInvariants, resolveChain } from './lib/compiler.mjs';
 export { instantiate, getInstance, listInstances, loadOfficeGrants, intersectTools, validateConfig, semanticChecks } from './lib/instance.mjs';
 export { loadRegistry, verifyRegistry, loadTemplate, loadSkill, loadKnowledge, addEntry, parseRef } from './lib/registry.mjs';
+export { run, getRun, listRuns, interviewFeedback, approveOutput, exportOutput, runBehavioralTest, buildInstructions, buildInput, wrapUntrusted, detectInjection, parseModelJson, postChecks, loadJobFixture } from './lib/runtime.mjs';
+export { callModel, loadLlmConfig, verifyModelId, DEFAULT_MODEL, MODEL_CANDIDATES } from './lib/model.mjs';
 export { hashObject, digestOf, canonicalJson, FactoryError } from './lib/canonical.mjs';
 
 // ---- CLI ----
@@ -82,6 +85,28 @@ export const commands = {
       return { json: { registry: reg, instances }, text: lines.join('\n') };
     }
   },
+  run: {
+    usage: 'run <agent-id> --job <job-file.txt> [--resume <resume.txt>] [--task "What to do"]',
+    async run([instanceId], flags) {
+      if (!instanceId || typeof flags.job !== 'string') throw new FactoryError('Usage: node factory.mjs run <agent-id> --job <job-file.txt> [--resume <resume.txt>] [--task "What to do"]', 'USAGE');
+      const record = await runAgent(instanceId, typeof flags.task === 'string' ? flags.task : 'Compare my profile to this job posting.', {
+        job: { file: flags.job },
+        resumeFile: typeof flags.resume === 'string' ? flags.resume : undefined
+      });
+      const text = record.status === 'PASS'
+        ? [`PASS run ${record.runId} (model ${record.model}, request ${record.provider.requestId})`, record.output.message].join('\n')
+        : [`FAIL run ${record.runId} at step "${record.stage}":`, ...record.reasons.map((r) => `  - ${r}`)].join('\n');
+      return { json: record, text, exitCode: record.status === 'PASS' ? 0 : 1 };
+    }
+  },
+  'approve-output': {
+    usage: 'approve-output <agent-id> <run-id>',
+    run([instanceId, runId]) {
+      if (!instanceId || !runId) throw new FactoryError('Usage: node factory.mjs approve-output <agent-id> <run-id>', 'USAGE');
+      const a = approveOutput(instanceId, runId);
+      return { json: a, text: a.alreadyApproved ? `Run ${runId} was already approved at ${a.approvedAt}.` : `Approved run ${runId}. The drafts can now be exported.` };
+    }
+  },
   verify: {
     usage: 'verify',
     run() {
@@ -94,7 +119,7 @@ export const commands = {
   }
 };
 
-export function main(argv) {
+export async function main(argv) {
   const { positional, flags } = parseArgs(argv);
   const [name, ...rest] = positional;
   const cmd = name && commands[name];
@@ -104,9 +129,9 @@ export function main(argv) {
     return 2;
   }
   try {
-    const out = cmd.run(rest, flags);
+    const out = await cmd.run(rest, flags);
     console.log(flags.json || out.text === undefined ? JSON.stringify(out.json, null, 2) : out.text);
-    return 0;
+    return out.exitCode ?? 0;
   } catch (e) {
     if (e instanceof FactoryError) {
       console.error(`Error: ${e.message}`);
@@ -117,5 +142,5 @@ export function main(argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exitCode = main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2));
 }

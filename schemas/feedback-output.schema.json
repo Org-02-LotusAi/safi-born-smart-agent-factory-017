@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://safi.example/schemas/feedback-output.schema.json",
+  "title": "SAFI CS Job Search Coach interview feedback output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["feedback", "strengths", "improvements", "evidenceIds", "safety"],
+  "properties": {
+    "feedback": { "type": "string", "minLength": 1 },
+    "strengths": { "type": "array", "items": { "type": "string" } },
+    "improvements": { "type": "array", "items": { "type": "string" } },
+    "evidenceIds": { "type": "array", "items": { "type": "string" } },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["injectionDetected", "ignoredInstructions"],
+      "properties": {
+        "injectionDetected": { "type": "boolean" },
+        "ignoredInstructions": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

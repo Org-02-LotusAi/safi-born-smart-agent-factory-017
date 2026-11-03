@@ -1,0 +1,25 @@
+SYNTHETIC SAMPLE RESUME - Alex Example is a made-up person used for testing.
+
+ALEX EXAMPLE
+Remote or Austin, Texas area
+
+EDUCATION
+Example State University - Bachelor of Science, Computer Science (expected 2026)
+
+PROJECTS
+Campus Study-Room Scheduler (senior capstone, team project)
+- Built the booking API and the conflict-checking logic in Python and Flask with SQLite.
+- Wrote the unit tests for the booking API using pytest. Used Git for team work.
+- Presented the finished project to the course instructor and classmates.
+
+Sorting Algorithm Visualizer (class project)
+- Implemented several sorting algorithms and a browser page that animates them step by step in JavaScript, HTML and CSS.
+
+Library Database Design (class project)
+- Designed a relational schema for a small library in PostgreSQL, wrote SQL queries for common reports and documented the design.
+
+SKILLS
+Python, JavaScript, SQL, Git, unit testing with pytest
+
+WORK EXPERIENCE
+None yet (no paid employment).
