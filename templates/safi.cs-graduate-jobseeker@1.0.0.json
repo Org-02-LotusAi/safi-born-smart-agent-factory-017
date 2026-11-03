@@ -1,0 +1,361 @@
+{
+  "kind": "template",
+  "id": "safi.cs-graduate-jobseeker",
+  "version": "1.0.0",
+  "title": "CS Job Search Coach",
+  "description": "Entry-level computer science job-seeker coach: software, QA and data roles, skill evidence from academic projects, coding interview practice, portfolio guidance and application planning.",
+  "parent": {
+    "id": "safi.career",
+    "version": "1.0.0",
+    "sha256": "fa1ea5507232468f054fdbd89a63cba918b2232261e8a1443c4646d38f300ccf"
+  },
+  "refinement": {
+    "addKnowledgeRefs": [
+      {
+        "id": "cs-job-families-and-skills",
+        "sha256": "14c79da1e40783c729c7c6d99bb7740a419ae0592e0df60d40b228607d7a014b"
+      },
+      {
+        "id": "interview-preparation-and-provenance",
+        "sha256": "21b9bdf9516d32609448e3137d4f9cb1e2c469c6b9cf4d1ab9fb04e5d65642d8"
+      }
+    ],
+    "addSkillRefs": [
+      {
+        "id": "resume-evidence-map",
+        "version": "1.0.0",
+        "sha256": "98ea14b8ad18dd9988a96f501486c3b0ea9721e28f7495edc55e9432156e3c2b"
+      },
+      {
+        "id": "job-posting-gap-analysis",
+        "version": "1.0.0",
+        "sha256": "b199543935f3c33074158b3e742e065438fc14106cf587b2f8c410e34a627e5a"
+      },
+      {
+        "id": "interview-coach",
+        "version": "1.0.0",
+        "sha256": "717b201766098b435fb307cb71f0bb26dbe87f9c89a169d71c8ef92679dbb4f3"
+      },
+      {
+        "id": "seven-day-plan",
+        "version": "1.0.0",
+        "sha256": "4c7ac63a9da9c435b0f2f9988b92f1c4133932b657ad86a8d6cdbf1fc5065b2b"
+      }
+    ],
+    "addConstraints": [
+      {
+        "id": "entry-level-scope",
+        "text": "Coach only for entry-level and new-graduate computer science roles (software, QA, data). For other roles or seniority levels, say it is outside this agent's scope.",
+        "policy": "escalate-to-human"
+      },
+      {
+        "id": "academic-projects-labelled",
+        "text": "Class projects, capstones and personal projects must be described as what they are, each with its evidence id. Never present academic work as paid employment or give it a job title.",
+        "policy": "evidence-citation"
+      },
+      {
+        "id": "coding-practice-honesty",
+        "text": "In coding interview practice, never claim a solution was run or verified unless it was. Explain reasoning and trade-offs, and say when you are unsure.",
+        "policy": "no-fabrication"
+      },
+      {
+        "id": "portfolio-consented-only",
+        "text": "Suggest portfolio items only from work the candidate owns, and remind them to remove private data before anything is made public.",
+        "policy": "privacy-consent"
+      }
+    ],
+    "addTests": [
+      {
+        "id": "t2-skills-present",
+        "kind": "structural",
+        "description": "The resume-evidence-map skill is part of the compiled contract.",
+        "assert": {
+          "skillPresent": "resume-evidence-map"
+        }
+      },
+      {
+        "id": "t2-gap-skill-present",
+        "kind": "structural",
+        "description": "The job-posting-gap-analysis skill is part of the compiled contract.",
+        "assert": {
+          "skillPresent": "job-posting-gap-analysis"
+        }
+      },
+      {
+        "id": "t2-interview-skill-present",
+        "kind": "structural",
+        "description": "The interview-coach skill is part of the compiled contract.",
+        "assert": {
+          "skillPresent": "interview-coach"
+        }
+      },
+      {
+        "id": "t2-plan-skill-present",
+        "kind": "structural",
+        "description": "The seven-day-plan skill is part of the compiled contract.",
+        "assert": {
+          "skillPresent": "seven-day-plan"
+        }
+      },
+      {
+        "id": "t2-job-families-knowledge",
+        "kind": "structural",
+        "description": "The CS job families knowledge document is pinned.",
+        "assert": {
+          "knowledgePresent": "cs-job-families-and-skills"
+        }
+      },
+      {
+        "id": "t2-paid-employment-required",
+        "kind": "structural",
+        "description": "The candidate must state paid employment (possibly none) so the agent never has to guess.",
+        "assert": {
+          "parameterRequired": "paidEmployment"
+        }
+      },
+      {
+        "id": "t2-gap-table-cites-evidence",
+        "kind": "behavioral",
+        "description": "The requirement-to-evidence table cites profile evidence ids for what it marks as met or partial.",
+        "input": {
+          "profile": "alex-example.profile.json",
+          "job": "job-swe-entry.txt",
+          "task": "Build the requirement-to-evidence match and gap table for this job."
+        },
+        "expect": {
+          "sections": [
+            "matchTable"
+          ],
+          "mustMatch": [
+            "\\b(edu|proj|skill)-[a-z0-9-]+"
+          ]
+        }
+      },
+      {
+        "id": "t2-seven-day-plan-shape",
+        "kind": "behavioral",
+        "description": "The search plan has seven days and the interview set has five questions.",
+        "input": {
+          "profile": "alex-example.profile.json",
+          "job": "job-swe-entry.txt",
+          "task": "Give me five practice interview questions and a seven-day search plan."
+        },
+        "expect": {
+          "sections": [
+            "interviewQuestions",
+            "sevenDayPlan"
+          ]
+        }
+      }
+    ],
+    "addParameterFields": {
+      "properties": {
+        "preferredRoles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "software-engineer",
+              "qa-engineer",
+              "data-analyst"
+            ]
+          }
+        },
+        "locationPreference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "contactPreferences": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          }
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "institution",
+              "degree",
+              "field",
+              "endYear"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "institution": {
+                "type": "string",
+                "minLength": 1
+              },
+              "degree": {
+                "type": "string",
+                "minLength": 1
+              },
+              "field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "endYear": {
+                "type": "integer",
+                "minimum": 1990,
+                "maximum": 2100
+              }
+            }
+          }
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "kind",
+              "description",
+              "technologies",
+              "outcomes"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "class",
+                  "capstone",
+                  "personal",
+                  "research"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "technologies": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "outcomes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name",
+              "evidenceIds"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidenceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "paidEmployment": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "employer",
+              "title",
+              "startYear",
+              "description"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              "employer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "startYear": {
+                "type": "integer",
+                "minimum": 1990,
+                "maximum": 2100
+              },
+              "endYear": {
+                "type": "integer",
+                "minimum": 1990,
+                "maximum": 2100
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "preferredRoles",
+        "locationPreference",
+        "contactPreferences",
+        "education",
+        "projects",
+        "skills",
+        "paidEmployment"
+      ]
+    },
+    "addRoleGuidance": [
+      "You are the CS Job Search Coach for new computer science graduates looking for legitimate entry-level work.",
+      "Treat class projects and the capstone as strong, honest evidence of skills, and always label them as academic work.",
+      "Produce four things on request: a requirement-to-evidence gap table, a truthful tailored resume draft, five interview practice questions with feedback, and a seven-day search plan.",
+      "Suggest small, concrete, free actions the candidate can do themselves this week."
+    ]
+  },
+  "parameterSchema": {},
+  "tests": [],
+  "knowledgeRefs": [],
+  "skillRefs": [],
+  "digest": "9d57ce0645bd6c0eec597ec4d7c6e9ff176bb831957f5ac09cf4ac3c1751f258"
+}

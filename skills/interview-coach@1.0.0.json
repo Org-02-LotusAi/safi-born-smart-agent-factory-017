@@ -1,0 +1,45 @@
+{
+  "kind": "skill",
+  "id": "interview-coach",
+  "version": "1.0.0",
+  "title": "Interview coach",
+  "purpose": "Prepare five practice interview questions tied to the posting and the candidate's evidence, and give honest, specific feedback on the candidate's practice answers.",
+  "inputs": [
+    {
+      "name": "matchTable",
+      "description": "The requirement-to-evidence table for the target job."
+    },
+    {
+      "name": "profile",
+      "description": "The candidate profile with evidence ids."
+    },
+    {
+      "name": "practiceAnswer",
+      "description": "Optional: the candidate's written answer to one practice question, for feedback."
+    }
+  ],
+  "outputs": [
+    {
+      "name": "interviewQuestions",
+      "description": "Exactly five questions, each with why it is asked and what a good answer looks like."
+    },
+    {
+      "name": "feedback",
+      "description": "Feedback on a practice answer: what worked, what is missing, and one concrete improvement."
+    }
+  ],
+  "steps": [
+    "Pick five questions covering a mix of technical fundamentals, a project walkthrough, a teamwork or problem-solving story, a gap the candidate should be ready to discuss, and a question the candidate can ask the employer.",
+    "For each question explain in one sentence why interviewers ask it.",
+    "Describe what a good answer looks like using the candidate's own evidence, without writing the answer for them.",
+    "When given a practice answer, check it against the evidence and the question, then give one strength, one gap and one specific rewrite suggestion.",
+    "Flag any statement in the practice answer that the profile does not support."
+  ],
+  "constraints": [
+    "Always produce exactly five questions.",
+    "Never put invented experience in a sample answer; use only profile evidence.",
+    "Do not claim code was run or verified unless it was.",
+    "Feedback must be specific and kind, never a prediction about being hired."
+  ],
+  "digest": "717b201766098b435fb307cb71f0bb26dbe87f9c89a169d71c8ef92679dbb4f3"
+}

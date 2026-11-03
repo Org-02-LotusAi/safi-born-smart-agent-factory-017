@@ -1,0 +1,50 @@
+{
+  "candidateName": "Alex Example",
+  "consentToHostedModel": true,
+  "preferredRoles": ["software-engineer", "qa-engineer"],
+  "locationPreference": "Remote or Austin, Texas area",
+  "contactPreferences": ["email", "in-app"],
+  "education": [
+    {
+      "id": "edu-bs-cs",
+      "institution": "Example State University",
+      "degree": "Bachelor of Science",
+      "field": "Computer Science",
+      "endYear": 2026
+    }
+  ],
+  "projects": [
+    {
+      "id": "proj-capstone-scheduler",
+      "title": "Campus Study-Room Scheduler (senior capstone)",
+      "kind": "capstone",
+      "description": "Team capstone for a web application that lets students reserve study rooms. Alex built the booking API and the conflict-checking logic and wrote the unit tests for it.",
+      "technologies": ["Python", "Flask", "SQLite", "pytest", "Git"],
+      "outcomes": ["Presented to the course instructor and classmates at the end of the semester.", "Booking API covered by an automated unit test suite."]
+    },
+    {
+      "id": "proj-algorithms-visualizer",
+      "title": "Sorting Algorithm Visualizer (class project)",
+      "kind": "class",
+      "description": "Individual class project for an algorithms course. Implemented several sorting algorithms and a simple browser page that animates them step by step.",
+      "technologies": ["JavaScript", "HTML", "CSS"],
+      "outcomes": ["Submitted for the algorithms course."]
+    },
+    {
+      "id": "proj-database-course",
+      "title": "Library Database Design (class project)",
+      "kind": "class",
+      "description": "Designed a relational schema for a small library, wrote SQL queries for common reports, and documented the design decisions.",
+      "technologies": ["SQL", "PostgreSQL"],
+      "outcomes": ["Submitted for the databases course."]
+    }
+  ],
+  "skills": [
+    { "id": "skill-python", "name": "Python", "evidenceIds": ["proj-capstone-scheduler"] },
+    { "id": "skill-javascript", "name": "JavaScript", "evidenceIds": ["proj-algorithms-visualizer"] },
+    { "id": "skill-sql", "name": "SQL", "evidenceIds": ["proj-database-course"] },
+    { "id": "skill-git", "name": "Git", "evidenceIds": ["proj-capstone-scheduler"] },
+    { "id": "skill-unit-testing", "name": "Unit testing with pytest", "evidenceIds": ["proj-capstone-scheduler"] }
+  ],
+  "paidEmployment": []
+}

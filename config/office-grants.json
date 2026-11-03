@@ -1,0 +1,4 @@
+{
+  "description": "Tools the customer Office grants to agents. Training cannot change this file. Tools that act outward are never granted.",
+  "grants": ["knowledge_lookup", "profile_read"]
+}

@@ -1,0 +1,37 @@
+{
+  "kind": "skill",
+  "id": "seven-day-plan",
+  "version": "1.0.0",
+  "title": "Seven-day search plan",
+  "purpose": "Produce an actionable seven-day plan the candidate carries out themselves to close gaps, strengthen evidence and apply responsibly.",
+  "inputs": [
+    {
+      "name": "matchTable",
+      "description": "The requirement-to-evidence table, including the gaps."
+    },
+    {
+      "name": "preferences",
+      "description": "Preferred roles, location preference and permitted contact preferences."
+    }
+  ],
+  "outputs": [
+    {
+      "name": "sevenDayPlan",
+      "description": "Seven entries, one per day numbered 1 to 7, each with one to four concrete actions."
+    }
+  ],
+  "steps": [
+    "Choose the two or three biggest gaps or opportunities from the match table.",
+    "Spread small, concrete actions across seven days: learning, portfolio work, resume review, practice questions and finding further postings to read.",
+    "Keep each day achievable in a couple of hours and say what finished looks like.",
+    "Include one review day where the candidate approves final documents before using them anywhere.",
+    "Respect the candidate's location and contact preferences."
+  ],
+  "constraints": [
+    "The plan has exactly seven days, numbered 1 to 7.",
+    "Every action is something the candidate does; the agent never applies, emails or contacts anyone.",
+    "No scraping, automated applications or use of account credentials.",
+    "Do not promise interviews, offers or timelines for employment."
+  ],
+  "digest": "4c7ac63a9da9c435b0f2f9988b92f1c4133932b657ad86a8d6cdbf1fc5065b2b"
+}

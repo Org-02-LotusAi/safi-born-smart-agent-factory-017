@@ -1,0 +1,72 @@
+[
+  {
+    "kind": "knowledge",
+    "id": "cs-job-families-and-skills",
+    "version": "1.0.0",
+    "path": "knowledge/cs-job-families-and-skills.md",
+    "sha256": "14c79da1e40783c729c7c6d99bb7740a419ae0592e0df60d40b228607d7a014b"
+  },
+  {
+    "kind": "knowledge",
+    "id": "interview-preparation-and-provenance",
+    "version": "1.0.0",
+    "path": "knowledge/interview-preparation-and-provenance.md",
+    "sha256": "21b9bdf9516d32609448e3137d4f9cb1e2c469c6b9cf4d1ab9fb04e5d65642d8"
+  },
+  {
+    "kind": "knowledge",
+    "id": "resume-writing-and-ethical-applications",
+    "version": "1.0.0",
+    "path": "knowledge/resume-writing-and-ethical-applications.md",
+    "sha256": "b8530f48888e3f2c6401475b2ed61633175fc33e0264cfba5db5127b4762e49d"
+  },
+  {
+    "kind": "skill",
+    "id": "interview-coach",
+    "version": "1.0.0",
+    "path": "skills/interview-coach@1.0.0.json",
+    "sha256": "717b201766098b435fb307cb71f0bb26dbe87f9c89a169d71c8ef92679dbb4f3"
+  },
+  {
+    "kind": "skill",
+    "id": "job-posting-gap-analysis",
+    "version": "1.0.0",
+    "path": "skills/job-posting-gap-analysis@1.0.0.json",
+    "sha256": "b199543935f3c33074158b3e742e065438fc14106cf587b2f8c410e34a627e5a"
+  },
+  {
+    "kind": "skill",
+    "id": "resume-evidence-map",
+    "version": "1.0.0",
+    "path": "skills/resume-evidence-map@1.0.0.json",
+    "sha256": "98ea14b8ad18dd9988a96f501486c3b0ea9721e28f7495edc55e9432156e3c2b"
+  },
+  {
+    "kind": "skill",
+    "id": "seven-day-plan",
+    "version": "1.0.0",
+    "path": "skills/seven-day-plan@1.0.0.json",
+    "sha256": "4c7ac63a9da9c435b0f2f9988b92f1c4133932b657ad86a8d6cdbf1fc5065b2b"
+  },
+  {
+    "kind": "template",
+    "id": "safi.agent",
+    "version": "1.0.0",
+    "path": "templates/safi.agent@1.0.0.json",
+    "sha256": "cb2e002ca9e238459d6c76e00c4a91b84b05cc8239116871b9a2cfb191fd4915"
+  },
+  {
+    "kind": "template",
+    "id": "safi.career",
+    "version": "1.0.0",
+    "path": "templates/safi.career@1.0.0.json",
+    "sha256": "fa1ea5507232468f054fdbd89a63cba918b2232261e8a1443c4646d38f300ccf"
+  },
+  {
+    "kind": "template",
+    "id": "safi.cs-graduate-jobseeker",
+    "version": "1.0.0",
+    "path": "templates/safi.cs-graduate-jobseeker@1.0.0.json",
+    "sha256": "9d57ce0645bd6c0eec597ec4d7c6e9ff176bb831957f5ac09cf4ac3c1751f258"
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cs-job-families-and-skills",
+    "version": "1.0.0",
+    "title": "Entry-level computer science job families and the skills they ask for",
+    "author": "SAFI",
+    "date": "2026-11-03",
+    "source": "SAFI-authored",
+    "file": "knowledge/cs-job-families-and-skills.md",
+    "sha256": "14c79da1e40783c729c7c6d99bb7740a419ae0592e0df60d40b228607d7a014b"
+  },
+  {
+    "id": "interview-preparation-and-provenance",
+    "version": "1.0.0",
+    "title": "Interview preparation and source provenance",
+    "author": "SAFI",
+    "date": "2026-11-03",
+    "source": "SAFI-authored",
+    "file": "knowledge/interview-preparation-and-provenance.md",
+    "sha256": "21b9bdf9516d32609448e3137d4f9cb1e2c469c6b9cf4d1ab9fb04e5d65642d8"
+  },
+  {
+    "id": "resume-writing-and-ethical-applications",
+    "version": "1.0.0",
+    "title": "Evidence-backed resume writing and ethical job applications",
+    "author": "SAFI",
+    "date": "2026-11-03",
+    "source": "SAFI-authored",
+    "file": "knowledge/resume-writing-and-ethical-applications.md",
+    "sha256": "b8530f48888e3f2c6401475b2ed61633175fc33e0264cfba5db5127b4762e49d"
+  }
+]
