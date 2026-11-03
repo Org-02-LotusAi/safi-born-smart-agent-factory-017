@@ -151,6 +151,7 @@ test('dry-run with a config prints the exact S3 key, SSM document and commands, 
     assert.match(joined, /office\/install\.sh/);
     assert.match(joined, new RegExp(`--sha '${r.bundle.bundleSha256}'`));
     assert.match(joined, /--secure-cookie 1/);
+    assert.match(joined, /--trust-proxy 'false'/, 'the default is passed to the installer');
     assert.ok(r.steps.some((s) => /Upload/.test(s.title) && s.awsCall));
   } finally { rm(root); }
 });
@@ -397,7 +398,7 @@ test('install.sh: refuses Node older than the 22.9 floor and unsafe argument val
       const r = sb.exec('install.sh', b.args(`rel-${v}`), { STUB_NODE_VERSION: v });
       assert.equal(r.status, 0, `${v}: ${r.stderr}`);
     }
-    for (const [opt, val] of [['--host', '10.0.0.5'], ['--region', 'ap south'], ['--secret-param', '/x;rm -rf /'], ['--candidate-param', "/x'y"], ['--release', '../evil']]) {
+    for (const [opt, val] of [['--host', '10.0.0.5'], ['--region', 'ap south'], ['--secret-param', '/x;rm -rf /'], ['--candidate-param', "/x'y"], ['--release', '../evil'], ['--trust-proxy', 'true'], ['--trust-proxy', '1;rm']]) {
       const r = sb.exec('install.sh', setArg(b.args('rel-z'), opt, val));
       assert.notEqual(r.status, 0, `${opt} ${val}`);
       assert.match(r.stderr, /INSTALL FAILED/);
@@ -421,6 +422,7 @@ test('install.sh: fresh install creates the user, data dir, release, current, co
     const conf = readFileSync(path.join(sb.conf, 'office.conf'), 'utf8');
     assert.match(conf, /^SAFI_MODE=office$/m);
     assert.match(conf, /^COOKIE_SECURE=1$/m);
+    assert.match(conf, /^TRUST_PROXY=false$/m, 'default: no proxy is trusted');
     assert.match(conf, /^SECRET_PARAM=\/safi\/office\/anthropic-api-key$/m);
     assert.doesNotMatch(conf, /sk-ant|PASSCODE=/);
     const calls = sb.calls();
@@ -640,4 +642,14 @@ test('local Office: real server/index.mjs honours SAFI_MODE and SAFI_DATA_DIR fr
     assert.ok(existsSync(dataDir), 'data dir from SAFI_DATA_DIR exists');
     assert.ok(!existsSync(path.join(appDir, 'data')), 'nothing was written to <app>/data');
   } finally { rm(root); rm(base); }
+});
+
+test('install.sh: --trust-proxy 1 is written to office.conf for the ALB topology', { skip: SKIP_BASH }, () => {
+  const sb = makeSandbox();
+  try {
+    const b = makeInstallBundle(sb);
+    const r = sb.exec('install.sh', [...b.args('rel-alb'), '--trust-proxy', '1'], { STUB_USER_MISSING: '1' });
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.match(readFileSync(path.join(sb.conf, 'office.conf'), 'utf8'), /^TRUST_PROXY=1$/m);
+  } finally { rm(sb.dir); }
 });

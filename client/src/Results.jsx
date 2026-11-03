@@ -149,7 +149,7 @@ function toMarkdown(run, resumeText, labels) {
 function Proof({ run, instanceId }) {
   const o = run.output;
   return (
-    <Disclosure summary="Proof: how this answer was made">
+    <Disclosure summary="Proof: how this answer was made" open>
       <dl className="proof">
         <dt>AI model</dt><dd className="mono">{run.model || run.requestedModel || 'unknown'}</dd>
         <dt>Provider request id</dt><dd>{run.provider?.requestId ? <CopyText value={run.provider.requestId} label="provider request id" /> : <span className="muted">none recorded</span>}</dd>

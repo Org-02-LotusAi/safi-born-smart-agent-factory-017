@@ -2,7 +2,7 @@
 // repo content and a temporary data folder, so nothing real is touched. Requests go through a real socket.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -490,4 +490,84 @@ test('openapi.yaml matches the routes the server really registers (both directio
     for (const part of m[1].split('/')) node = node?.[part];
     assert.ok(node, `unresolved $ref ${m[1]}`);
   }
+});
+
+// ---------- trust proxy and passcode throttle ----------
+test('parseTrustProxy: false by default, numbers and names accepted, "true" refused', async () => {
+  const { parseTrustProxy } = await import('../server/auth.mjs');
+  assert.equal(parseTrustProxy(undefined), false);
+  assert.equal(parseTrustProxy('false'), false);
+  assert.equal(parseTrustProxy('1'), 1);
+  assert.equal(parseTrustProxy('loopback'), 'loopback');
+  assert.deepEqual(parseTrustProxy('loopback, 10.0.0.0/8'), ['loopback', '10.0.0.0/8']);
+  assert.throws(() => parseTrustProxy('true'), /trust any X-Forwarded-For/);
+  assert.throws(() => parseTrustProxy('banana!'), /not understood/);
+});
+
+test('passcode throttle is per ip + role + name: one locked-out person does not lock out others', () => withServer(async ({ api }) => {
+  const wrong = (name, role = 'candidate', headers = {}) => api('POST', '/session', { body: { role, passcode: 'nope', name }, headers });
+  for (let i = 0; i < 8; i++) assertErrorShape(await wrong('Mallory'), 401, 'WRONG_PASSCODE');
+  assertErrorShape(await wrong('Mallory'), 429, 'TOO_MANY_ATTEMPTS');
+  // Same address, different name or role: still allowed to sign in with the right passcode.
+  const ok = await api('POST', '/session', { body: { role: 'candidate', passcode: PASS.candidate, name: 'Alex' } });
+  assert.equal(ok.status, 201, ok.text);
+  assert.equal((await api('POST', '/session', { body: { role: 'trainer', passcode: PASS.trainer, name: 'Mallory' } })).status, 201);
+  // Mallory with the RIGHT passcode is also blocked while locked (guessing stays slow).
+  assertErrorShape(await api('POST', '/session', { body: { role: 'candidate', passcode: PASS.candidate, name: 'Mallory' } }), 429, 'TOO_MANY_ATTEMPTS');
+}));
+
+test('trust proxy: without TRUST_PROXY X-Forwarded-For is ignored; with trustProxy 1 each forwarded address has its own bucket', async () => {
+  const attempts = (api, xff, name) => api('POST', '/session', { body: { role: 'candidate', passcode: 'nope', name }, headers: { 'X-Forwarded-For': xff } });
+  await withServer(async ({ api }) => {
+    for (let i = 0; i < 8; i++) await attempts(api, `203.0.113.${i}`, 'Mallory');
+    assertErrorShape(await attempts(api, '198.51.100.9', 'Mallory'), 429, 'TOO_MANY_ATTEMPTS'); // spoofed header did not help
+  });
+  await withServer(async ({ api }) => {
+    for (let i = 0; i < 8; i++) await attempts(api, '203.0.113.5', 'Mallory');
+    assertErrorShape(await attempts(api, '203.0.113.5', 'Mallory'), 429, 'TOO_MANY_ATTEMPTS');
+    assertErrorShape(await attempts(api, '198.51.100.9', 'Mallory'), 401, 'WRONG_PASSCODE'); // a different caller behind the proxy
+  }, { trustProxy: 1 });
+});
+
+test('approve in factory mode inside a git work tree commits exactly the release; a failing commit is a warning, not a failed publish', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const runGit = (root, ...a) => execFileSync('git', a, { cwd: root, stdio: 'pipe' }).toString().trim();
+  const publish = async ({ api, login, root }, { expectCommit }) => {
+    const trainer = await login('trainer', 'Pat Trainer');
+    const t = await api('POST', '/drafts', { cookie: trainer, body: { templateRef: T2, lesson: 'A capstone is not paid employment.' } });
+    assert.equal((await poll(api, trainer, t.json.jobId)).status, 'done');
+    const q = await api('POST', `/drafts/${D}/qualify`, { cookie: trainer });
+    assert.equal((await poll(api, trainer, q.json.jobId)).status, 'done');
+    if (expectCommit === 'break') { writeFileSync(path.join(root, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\necho blocked >&2\nexit 1\n', { mode: 0o755 }); }
+    return api('POST', `/drafts/${D}/approve`, { cookie: trainer, body: { trainer: 'Pat Trainer' } });
+  };
+  const gitInit = (root) => {
+    runGit(root, 'init', '-q'); runGit(root, 'config', 'user.email', 't@example.com'); runGit(root, 'config', 'user.name', 'Tester');
+    runGit(root, 'config', 'core.hooksPath', '.git/hooks'); runGit(root, 'add', '-A'); runGit(root, 'commit', '-q', '-m', 'base');
+  };
+  await withServer(async (ctx) => {
+    gitInit(ctx.root);
+    const done = await publish(ctx, { expectCommit: true });
+    assert.equal(done.status, 200, done.text);
+    assert.match(done.json.gitCommit, /^[0-9a-f]{40}$/);
+    assert.equal(done.json.gitWarning, undefined);
+    const lines = runGit(ctx.root, 'show', '--name-only', '--format=%s', 'HEAD').split('\n').filter(Boolean);
+    assert.equal(lines[0], `publish ${D} approved by Pat Trainer`);
+    assert.ok(lines.includes(`templates/${D}.json`) && lines.includes('registry/index.json') && lines.includes(`release/${D}/manifest.json`));
+    assert.ok(!lines.some((f) => f.startsWith('drafts/') || f.startsWith('data/')));
+  });
+  await withServer(async (ctx) => {
+    gitInit(ctx.root);
+    const done = await publish(ctx, { expectCommit: 'break' });
+    assert.equal(done.status, 200, done.text); // publish stands
+    assert.equal(done.json.gitCommit, undefined);
+    assert.match(done.json.gitWarning, /saving it to git failed/);
+    assert.ok(existsSync(path.join(ctx.root, 'templates', `${D}.json`)));
+  });
+  await withServer(async (ctx) => { // not a git work tree: no commit, no warning
+    const done = await publish(ctx, { expectCommit: false });
+    assert.equal(done.status, 200, done.text);
+    assert.equal(done.json.gitCommit, undefined);
+    assert.equal(done.json.gitWarning, undefined);
+  });
 });

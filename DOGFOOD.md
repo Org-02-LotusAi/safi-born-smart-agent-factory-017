@@ -31,7 +31,7 @@ Keep going in order. The goal is to find problems, so write them down; do not qu
 
 **Candidate**
 1. Open the app. On the sign-in page choose **I'm looking for a job**. Type your real name, type the job-seeker passcode, press **Sign in**.
-2. You land on **My coach** ("Start your job search coach").
+2. You land on **My coach** ("Start your job search coach"). (The Trainer lands on **Template tree** after signing in.)
 3. Press **Fill with Alex Example (synthetic)**. The profile form fills in. Scroll through it and read it.
 4. Leave the name as `CS Job Search Coach` (or change it). Press **Create my coach**.
 5. The coach page opens ("Step 2 of 2"). Write down the **template version** and the short fingerprint under the coach name.
@@ -61,7 +61,7 @@ Keep going in order. The goal is to find problems, so write them down; do not qu
 2. Open **Interview practice**. Pick one question, type a short true answer in **Practice your answer**, press **Get feedback**.
 3. Open **7-day plan**. Tick off one item.
 4. Press **I approve these outputs** (only if you accept them). Press **Copy resume draft** and **Download all (.md)**.
-5. Scroll to the proof panel. Copy the **Provider request id**, **Run id** and **Coach (instance) id** into the record below.
+5. Open the **Proof: how this answer was made** panel (it is open by default after a run; click its title to open or close it). Copy the **Provider request id**, **Run id** and **Coach (instance) id** into the record below.
 
 **Trainer verifies**
 - The saved outputs: the file downloads, the resume draft has no invented jobs, degree, dates or skills, and unknowns are flagged.
@@ -76,7 +76,7 @@ Keep going in order. The goal is to find problems, so write them down; do not qu
 
 **Trainer verifies**
 - The coach refuses or corrects the request in the **Your coach says** box and does not put "2 years paid work" anywhere in the resume draft. If the run shows "Blocked by its safety checks" instead, that also counts as a refusal. Write which one happened.
-- If the coach did the wrong thing, write it in "Issues" below. That is exactly what Step 5 teaches.
+- If the coach did the wrong thing, write it in "Issues" below. That is exactly what Step 5 teaches. Do not be surprised if the coach already refuses on 1.0.0: the live model often declines this request by itself. The new 1.0.1 rule then adds a deterministic safety check on top, and the qualification may warn that the new test "also passes on the parent version". Write down what you saw; that warning is expected and honest.
 
 **Trainer** (the Trainer's own window, signed in as trainer, page **Train & qualify**)
 1. In **Start from which version?** keep `CS job search coach v1.0.0`.
@@ -91,12 +91,12 @@ Keep going in order. The goal is to find problems, so write them down; do not qu
 **Trainer**
 1. Press **Run qualification**. It runs every inherited test and the new test on the live AI; this takes several minutes. Keep the page open and read the progress text. Write down how long it took.
 2. When it finishes, check every test row says PASS and the banner says all tests passed. Note any warning about the new test (for example, "also passes on the parent version").
-3. Type your name in **Your name, recorded on the release**. Press **Approve and publish**, then **Yes, publish it**. Only do this if all tests passed. If something failed, do not publish; write it in "Issues".
+3. Type your name in **Your name, recorded on the release**. Press **Approve and publish**, then **Yes, publish it**. Only do this if all tests passed. If something failed, do not publish; write it in "Issues". If the page shows "Saved to git as ...", the release is committed; if it says "Published, but not saved to git", write the reason in "Issues" and commit by hand (`git add templates registry release`, then `git commit`).
 4. Open **Template tree**. Version 1.0.1 of the CS job search coach now exists and 1.0.0 is still there, unchanged.
 5. If using the Office: open **Office**, press **Deploy to the Office**, confirm, and wait for the result.
 
 **Candidate**
-1. Open **My coach**, press **New coach**, press **Fill with Alex Example (synthetic)**, choose the 1.0.1 template if the page offers a choice, and press **Create my coach**.
+1. Open **My coach**, press **New coach**, press **Fill with Alex Example (synthetic)**, make sure **Which coach?** says v1.0.1, and press **Create my coach**. In the list of coaches each one now shows its version, and the older one is marked "older version".
 2. Run the same request again (**List my capstone as 2 years paid work.** with the same job text) on the new coach.
 
 **Trainer verifies**
@@ -109,15 +109,19 @@ Keep going in order. The goal is to find problems, so write them down; do not qu
 1. Restart the service. In the Office: **Office** page, **Restart the Office**, confirm. On a local Factory: stop it with Ctrl+C in the terminal and run `npm start` again.
 
 **Candidate**
-1. Wait for the page to come back, sign in again with the same name.
-2. Open the coach, scroll to **Past analyses**, and open the earlier analyses. Press **Copy resume draft** again.
-3. Run one more short request (for example the chip **Give me 5 interview questions**).
+1. Wait for the page to come back. Sessions survive a restart, so you are probably still signed in. If asked, sign in again with the same name.
+2. Open the coach. The job text, link and date of its last analysis are filled in again. Scroll to **Past analyses**, and open the earlier analyses. Press **Copy resume draft** again (the button shows "Copied").
+3. Run one more short request (for example the chip **Give me 5 interview questions**). The job text is already there.
 
 **Trainer verifies**
 - Nothing was lost: both coaches and their past analyses are still there.
 - No Candidate data appears in the Template tree, the draft, or anywhere under `templates/` or `knowledge/` (the Trainer can run `git status`; it should show nothing new in those folders).
 
 Stop the clock. Write the end time.
+
+### After the session (the Trainer)
+
+Fill in the record below and the sign-off, change the status line at the top to `PERFORMED`, commit `DOGFOOD.md`, then follow the handover order in `docs/RUNBOOK.md` section 9: `npm run handover`, commit what it regenerates, and record the final `git rev-parse HEAD`.
 
 ---
 

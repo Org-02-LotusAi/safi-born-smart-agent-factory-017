@@ -8,6 +8,7 @@
   "trainerPasscodeParameterName": "/safi/office/trainer-passcode",
   "port": 8017,
   "bindHost": "127.0.0.1",
+  "trustProxy": "false",
   "publicUrl": "https://REPLACE-office-hostname",
   "kmsKeyId": null
 }

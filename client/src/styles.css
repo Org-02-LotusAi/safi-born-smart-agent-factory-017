@@ -254,3 +254,4 @@ legend { font-weight: 600; color: var(--ink); padding: 0; margin-bottom: .35rem;
 .chip-button:hover { border-color: currentColor; }
 .chip-button:focus-visible { outline: 2px solid var(--seal-bright); outline-offset: 2px; }
 .coach-message { font-size: 1.05rem; white-space: pre-wrap; margin: .25rem 0 0; }
+.coach-version { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; font-size: .85rem; }

@@ -1,7 +1,7 @@
 // DEV-ONLY. Recomputes skill digests, knowledge hashes, template parent/ref pins and digests, and
 // rewrites registry/index.json and knowledge/index.json. Use it while authoring source files.
 // Never run it to "fix" an already-released template: released content is immutable.
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { digestOf, hashText } from '../lib/canonical.mjs';
 import { parseKnowledge, saveRegistry } from '../lib/registry.mjs';
@@ -12,6 +12,29 @@ const readJ = (f) => JSON.parse(readFileSync(f, 'utf8'));
 const writeJ = (f, o) => writeFileSync(f, JSON.stringify(o, null, 2) + '\n');
 const rel = (f) => path.relative(root, f).split(path.sep).join('/');
 const entries = [];
+
+// Guard: anything already in registry/index.json is released and immutable. If its file no longer matches the pinned
+// SHA-256, someone edited a released file, and re-digesting would quietly bless the edit. Refuse unless --force-dev.
+const FORCE = process.argv.includes('--force-dev');
+{
+  const regFile = path.join(root, 'registry', 'index.json');
+  const registered = existsSync(regFile) ? readJ(regFile) : [];
+  const changed = [];
+  for (const e of registered) {
+    const file = path.join(root, e.path);
+    if (!existsSync(file)) { changed.push(`${e.kind} ${e.id}@${e.version} (file missing: ${e.path})`); continue; }
+    const now = e.kind === 'knowledge' ? hashText(readFileSync(file, 'utf8')) : digestOf(readJ(file));
+    if (now !== e.sha256) changed.push(`${e.kind} ${e.id}@${e.version} (${e.path})`);
+  }
+  if (changed.length && !FORCE) {
+    const list = changed.map((c) => `  ${c}`).join('\n');
+    console.error(`Refusing to rehash: these released files differ from the SHA-256 pinned in registry/index.json:\n${list}\nReleased content is immutable. Restore the files from git (git checkout -- <path>) or publish a new version.\nDev-only override for a scratch copy: node scripts/rehash.mjs --force-dev`);
+    process.exit(1);
+  }
+  if (changed.length) {
+    console.warn('\n!!! --force-dev: RE-DIGESTING RELEASED FILES. This breaks the immutability promise for existing agents and releases. Use only in a throwaway copy. !!!\n');
+  }
+}
 
 // Skills
 const skillSha = new Map();

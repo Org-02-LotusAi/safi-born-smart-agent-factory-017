@@ -176,6 +176,7 @@ export default function Train({ me, initialTemplate }) {
   const [proposing, setProposing] = useState(false);
   const [qualifying, setQualifying] = useState(false);
   const [progress, setProgress] = useState('');
+  const [jobSince, setJobSince] = useState(null);
   const [needReplace, setNeedReplace] = useState(false);
   const [trainer, setTrainer] = useState(me.name || '');
   const [approving, setApproving] = useState(false);
@@ -217,8 +218,8 @@ export default function Train({ me, initialTemplate }) {
       try {
         const j = await get(`/jobs/${jid}`);
         if (j.status === 'done' || j.status === 'failed') { store.set(`safi.job.qualify.${selDraft}`, null); load(selDraft); return; }
-        setQualifying(true); setProgress(j.progressText || '');
-        await pollJob(jid, (x) => setProgress(x.progressText || ''), ac.signal, JOB_TIMEOUT.qualify);
+        setQualifying(true); setProgress(j.progressText || ''); setJobSince(j.startedAt || j.createdAt || null);
+        await pollJob(jid, (x) => { setProgress(x.progressText || ''); setJobSince(x.startedAt || x.createdAt || null); }, ac.signal, JOB_TIMEOUT.qualify);
         store.set(`safi.job.qualify.${selDraft}`, null); await load(selDraft);
       } catch (e) {
         if (e.name === 'AbortError') return;
@@ -234,11 +235,11 @@ export default function Train({ me, initialTemplate }) {
 
   const propose = async (replace) => {
     if (proposing || !base || !lesson.trim()) return;
-    setProposing(true); setError(null); setNeedReplace(false); setProgress('Asking the AI to draft a refinement...');
+    setProposing(true); setError(null); setNeedReplace(false); setJobSince(null); setProgress('Asking the AI to draft a refinement...');
     const ac = new AbortController(); abort.current = ac;
     try {
       const j = await post('/drafts', { templateRef: base, lesson: lesson.trim(), ...(replace ? { replace: true } : {}) });
-      const done = await pollJob(j.jobId, (x) => setProgress(x.progressText || ''), ac.signal);
+      const done = await pollJob(j.jobId, (x) => { setProgress(x.progressText || ''); setJobSince(x.startedAt || x.createdAt || null); }, ac.signal);
       await load(done.result.draftRef);
       setMode('train');
     } catch (e) {
@@ -249,12 +250,12 @@ export default function Train({ me, initialTemplate }) {
   };
   const qualify = async () => {
     if (qualifying || !selDraft) return;
-    setQualifying(true); setError(null); setProgress('Starting...');
+    setQualifying(true); setError(null); setJobSince(null); setProgress('Starting...');
     const ac = new AbortController(); abort.current = ac;
     try {
       const j = await post(`/drafts/${encodeURIComponent(selDraft)}/qualify`);
       store.set(`safi.job.qualify.${selDraft}`, j.jobId);
-      await pollJob(j.jobId, (x) => setProgress(x.progressText || ''), ac.signal, JOB_TIMEOUT.qualify);
+      await pollJob(j.jobId, (x) => { setProgress(x.progressText || ''); setJobSince(x.startedAt || x.createdAt || null); }, ac.signal, JOB_TIMEOUT.qualify);
       store.set(`safi.job.qualify.${selDraft}`, null);
       await load(selDraft);
     } catch (e) {
@@ -322,7 +323,7 @@ export default function Train({ me, initialTemplate }) {
               {(a) => <textarea {...a} rows={3} value={lesson} maxLength={4000} onChange={(e) => setLesson(e.target.value)} />}
             </Field>
             <div className="actions"><Button busy={proposing} disabled={!lesson.trim() || !base} onClick={() => propose(false)}>Propose a refinement</Button></div>
-            <Progress running={proposing} label="The AI is drafting your lesson" text={progress} expect="This usually takes under a minute." />
+            <Progress running={proposing} since={jobSince} label="The AI is drafting your lesson" text={progress} expect="This usually takes under a minute." />
           </section>
 
           <section className="panel" aria-label="Drafts">
@@ -364,7 +365,7 @@ export default function Train({ me, initialTemplate }) {
               <div className="actions">
                 <Button busy={qualifying} onClick={qualify}>{q ? 'Run qualification again' : 'Run qualification'}</Button>
               </div>
-              <Progress running={qualifying} label="Running every test on the live AI" text={progress} expect="About 3 to 4 minutes. You can leave this page and come back; the test keeps running." />
+              <Progress running={qualifying} since={jobSince} label="Running every test on the live AI" text={progress} expect="About 3 to 4 minutes. You can leave this page and come back; the test keeps running." />
               {q && !qualifying ? <QualResults q={q} view={view} draftRef={draft.draftRef} /> : null}
             </section>
           ) : null}
@@ -387,10 +388,14 @@ export default function Train({ me, initialTemplate }) {
             </section>
           ) : null}
           {draft?.status === 'PUBLISHED' || released ? (
+            <>
             <Notice tone="ok" title={`${draft?.draftRef || ''} is published`}>
               <p>{released ? `Approved by ${released.trainer} on ${when(released.at)}. Fingerprint ` : 'This draft has been published. '}{released?.sha256 ? <CopyText value={released.sha256} short label="release fingerprint" /> : null}</p>
               <p>Job seekers can now start coaches from it, and it appears in the Template tree.</p>
+              {released?.gitCommit ? <p className="muted">Saved to git as {released.gitCommit.slice(0, 10)}.</p> : null}
             </Notice>
+            {released?.gitWarning ? <Notice tone="warn" title="Published, but not saved to git"><p>{released.gitWarning}</p></Notice> : null}
+            </>
           ) : null}
         </>
       )}

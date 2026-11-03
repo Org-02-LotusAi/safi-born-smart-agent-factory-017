@@ -12,6 +12,11 @@ const SUGGESTIONS = [
   'List my capstone as 2 years paid work.'
 ];
 
+const vParts = (v) => String(v).split('.').map((n) => Number.parseInt(n, 10) || 0);
+const cmpVersion = (a, b) => { const x = vParts(a); const y = vParts(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+/** Newest released version of each template id, from the released templates the page already loaded. */
+const latestVersions = (templates) => templates.reduce((m, t) => { if (!m[t.id] || cmpVersion(t.version, m[t.id]) > 0) m[t.id] = t.version; return m; }, {});
+
 function Create({ templates, initialTemplate, onCreated, onCancel, canCancel }) {
   const [tpl, setTpl] = useState(initialTemplate || templates[0]?.ref || '');
   const [name, setName] = useState('CS Job Search Coach');
@@ -101,12 +106,24 @@ function Workspace({ id, justDemo }) {
   const [loadingDemo, setLoadingDemo] = useState(false);
   const abort = useRef(null);
 
-  const loadRuns = useCallback(() => get(`/instances/${id}/runs`).then((r) => setRuns(r.runs)).catch(setError), [id]);
+  const loadRuns = useCallback(() => get(`/instances/${id}/runs`).then((r) => { setRuns(r.runs); return r.runs; }).catch(setError), [id]);
   useEffect(() => {
+    let cancelled = false;
     setData(null); setRunId(null); setFresh(null); setError(null);
     get(`/instances/${id}`).then(setData).catch(setError);
-    loadRuns();
-    return () => abort.current?.abort();
+    // Reopening a coach: put the last job text, link and date back, so one more request needs no re-pasting.
+    loadRuns().then(async (list) => {
+      if (cancelled || !list?.length) return;
+      try {
+        const { run } = await get(`/instances/${id}/runs/${list[0].runId}`);
+        const j = run?.inputs?.job;
+        if (cancelled || !j?.text) return;
+        setJobText((cur) => cur || j.text);
+        setUrl((cur) => cur || j.url || '');
+        if (j.accessDate) setAccessDate((cur) => (cur === today() ? j.accessDate : cur));
+      } catch { /* pre-filling is a convenience; the form simply stays empty */ }
+    });
+    return () => { cancelled = true; abort.current?.abort(); };
   }, [id, loadRuns]);
 
   const fillSample = async () => {
@@ -219,6 +236,7 @@ export default function Use({ initialTemplate }) {
   if (error) return <ErrorBox error={error} />;
   if (!templates || !instances) return <p role="status">Loading your coaches...</p>;
   const mine = instances.filter((i) => i.owned !== false);
+  const latest = latestVersions(templates);
   if (!mine.length) {
     return (
       <Create templates={templates} initialTemplate={initialTemplate} canCancel={false} onCancel={() => {}}
@@ -234,6 +252,11 @@ export default function Use({ initialTemplate }) {
             <li key={i.instanceId}>
               <button type="button" className={`runbtn ${sel === i.instanceId ? 'sel' : ''}`} aria-pressed={sel === i.instanceId} onClick={() => { setJustDemo(false); setSel(i.instanceId); }}>
                 <span><strong>{i.name}</strong><small className="muted"> {when(i.createdAt)}</small></span>
+                <span className="coach-version">
+                  <span className="mono">v{i.templateRef?.version}</span>
+                  {latest[i.templateRef?.id] && cmpVersion(i.templateRef?.version, latest[i.templateRef.id]) < 0
+                    ? <Pill tone="warn">older version (latest is v{latest[i.templateRef.id]})</Pill> : null}
+                </span>
               </button>
             </li>
           ))}

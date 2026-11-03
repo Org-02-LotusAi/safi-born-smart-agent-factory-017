@@ -337,7 +337,7 @@ test('approve --git-commit: commits only the release paths when the root is a gi
     const out = approve(D, { trainer: 'Pat Trainer' }, { ...o, gitCommit: true });
     assert.match(out.gitCommit, /^[0-9a-f]{40}$/);
     const files = git('show', '--name-only', '--format=%s', 'HEAD').split('\n');
-    assert.equal(files[0], `release: ${D} approved by Pat Trainer`);
+    assert.equal(files[0], `publish ${D} approved by Pat Trainer`);
     assert.ok(files.includes(`templates/${D}.json`) && files.includes('registry/index.json') && files.includes(`release/${D}/manifest.json`));
     assert.ok(!files.some((f) => f.startsWith('drafts/') || f.startsWith('data/')), 'drafts and data are not committed');
   });

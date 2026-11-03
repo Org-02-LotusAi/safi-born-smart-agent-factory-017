@@ -13,7 +13,7 @@ For the SAFI Trainer or whoever looks after the system. Commands are run in a te
 | Different port | `PORT=8100` in `.env` (the server says plainly if a port is taken). |
 | Is it up? | Open http://localhost:8017/api/v1/health. You should see `{"status":"ok","mode":"factory",...}` with the model name and the git version. |
 | Is the release intact? | `npm run verify` re-hashes every template, skill and knowledge document against `registry/index.json`. |
-| Is the code healthy? | `npm test` (about a minute, no key and no network needed). |
+| Is the code healthy? | `npm test` (a few minutes, no key and no network needed). |
 | Is the key valid? | `npm run verify:model`. It makes one tiny call and prints the model id and provider request id. |
 
 The server listens only on `127.0.0.1` unless `HOST` is set. Do not expose it to a network without HTTPS in front of it (set `COOKIE_SECURE=1` when you do).
@@ -23,7 +23,8 @@ The server listens only on `127.0.0.1` unless `HOST` is set. Do not expose it to
 - Two roles: **job seeker** (passcode `CANDIDATE_PASSCODE`) and **SAFI Trainer** (passcode `TRAINER_PASSCODE`). Everyone also types their name when signing in; it is recorded on the agents they create and on every release the Trainer approves.
 - Only the Trainer can propose, qualify, approve and publish a template version, and deploy. A job seeker sees only their own coaches.
 - If a passcode is not set in `.env`, the server makes a random one, prints it once at start and saves it to `data/passcodes.local.txt`. Set real passcodes for anything shared.
-- Too many wrong passcodes from one address (8 in 10 minutes) are refused for a while. Wait ten minutes or restart the server.
+- Too many wrong passcodes are refused for a while: 8 wrong tries in 10 minutes for the same address, role and name (and 40 for the same address overall). One person's mistakes do not lock out anyone else. Wait ten minutes or restart the server.
+- **Behind a load balancer set `TRUST_PROXY`.** The server tells callers apart by their network address. Behind an AWS Application Load Balancer every request arrives from the load balancer, so without the setting all users share one address and one throttle bucket. Set `TRUST_PROXY=1` (one proxy in front) in `.env`, or `"trustProxy": "1"` in `config/office.json` for the Office (the installer writes it to `/etc/safi-office/office.conf`). Leave it `false` when the server is reached directly; `loopback` suits a local tunnel. `true` is refused on purpose, because it would believe any `X-Forwarded-For` a caller sends.
 - Changing a passcode: edit `.env`, restart. Existing browser sessions expire after 12 hours; to end them now, also delete `data/session-secret` before restarting.
 - Limitation: a person's identity is the name they type plus a shared passcode for their role. Two people who type the same name see the same coaches.
 
@@ -46,10 +47,10 @@ To throw away a draft that has not been published: stop nothing; delete `drafts/
 1. Sign in as **I'm a SAFI Trainer**. Open **Train & qualify**.
 2. Pick the version to start from. Type the correction in plain words. Press **Propose a refinement**. The AI drafts a rule and a regression test. Nothing is published.
 3. Read "What this version adds". Use **Show the raw JSON** to see exactly what would change. The AI can only add rules, tests and guidance, never tools.
-4. Press **Run qualification**. It re-runs every inherited test and the new one on the live AI; allow about 4 to 6 minutes. You can leave the page and come back; progress resumes. If the server restarts during a qualification, start it again.
+4. Press **Run qualification**. It re-runs every inherited test and the new one on the live AI; allow about 3 to 4 minutes. You can leave the page and come back; progress resumes. If the server restarts during a qualification, start it again.
 5. Read the results. Every row must be PASS. A warning that a new test "also passes on the parent version" means the test does not prove the new rule; consider re-proposing with a sharper lesson (**Replace the existing draft**).
 6. Type your name and press **Approve and publish**, then **Yes, publish it**. The new version appears in the **Template tree**. Existing coaches keep the version they were created from.
-7. Commit the release so it is in Git: `git add templates registry release` then `git commit`. (The CLI can do this for you with `--git-commit`.) Do not commit `drafts/` without reading it; the lesson text is stored there.
+7. The release is saved to Git for you. When the server runs in the Factory inside a git work tree, publishing also commits exactly the new `templates/<ref>.json`, `registry/index.json` and `release/<ref>/` as one commit named `publish <ref> approved by <your name>` (plain commit, no trailer), and the page shows the short commit id. If that commit fails (for example git has no user name set) the publish still succeeded: the page shows "Published, but not saved to git" with the reason, and you run `git add templates registry release` and `git commit` yourself. Do not commit `drafts/` without reading it; the lesson text is stored there.
 
 Same thing from the command line:
 
@@ -57,7 +58,7 @@ Same thing from the command line:
 node factory.mjs train safi.cs-graduate-jobseeker@1.0.0 "Never list a capstone or class project as paid work or count it as years of experience."
 node factory.mjs drafts
 node factory.mjs qualify safi.cs-graduate-jobseeker@1.0.1
-node factory.mjs approve safi.cs-graduate-jobseeker@1.0.1 --trainer "Your Name" --git-commit
+node factory.mjs approve safi.cs-graduate-jobseeker@1.0.1 --trainer "Your Name" --git-commit   # --git-commit makes the same git commit; the CLI fails loudly if it cannot
 node factory.mjs verify
 ```
 
@@ -125,18 +126,21 @@ If a key ever appears in a log, a record or Git, treat it as leaked: revoke it a
 ## 9. Acceptance evidence and the release manifest
 
 ```
-npm run acceptance              # offline checks; model checks are recorded as SKIPPED
+npm run acceptance              # offline checks; the model checks keep the results of the last --live run (carried forward, with its time)
 npm run acceptance -- --live    # also the real-model checks (about 10 minutes, a few cents)
 npm run release:manifest        # SHA-256 of every release file plus the git SHA
 node scripts/release-manifest.mjs --check
 ```
 
-`npm run acceptance` writes `ACCEPTANCE.json` and a new folder under `evidence/`. Each check is `PASS`, `FAIL`, `BLOCKED` (cannot run, for example the Office does not exist yet), `PENDING_HUMAN` (needs people) or `SKIPPED` (live checks without `--live`). A check is never PASS without evidence files. Commit both. The run fails if any evidence file contains text that looks like an API key. Before handover:
+`npm run acceptance` writes `ACCEPTANCE.json` and a new folder under `evidence/`. Each check is `PASS`, `FAIL`, `BLOCKED` (cannot run, for example the Office does not exist yet), `PENDING_HUMAN` (needs people), `PARTIAL` (works, but part of the evidence needs a person or a recording; never counted as PASS) or `SKIPPED` (live check never run). A check is never PASS without all its evidence. An offline run keeps the latest live results with a `carriedForward` note naming the live run time and evidence folder. Commit both. The run fails if any evidence file contains text that looks like an API key. ### Handover order
 
-1. Commit all code and docs.
-2. `npm run build`, then `npm run release:manifest` (it also fills the git SHA and document hashes in `service-expert.manifest.json`). Commit the result.
-3. `npm run acceptance -- --live` and commit `ACCEPTANCE.json` and the new `evidence/` folder.
-4. After the two-person session, fill in and sign `DOGFOOD.md`, change its status line to `PERFORMED`, and run `npm run acceptance` again so A11 can turn to PASS.
+1. Commit all code and docs. `npm run build`.
+2. Run the two-person dogfood session (`DOGFOOD.md`). Step 5 publishes v1.0.1 in the real repository; the app commits the release itself. Fill in and sign `DOGFOOD.md` and change its status line to `PERFORMED`. Get the approval line in `MODEL.md` filled in by the customer representative.
+3. Commit `DOGFOOD.md` and `MODEL.md`.
+4. If the model-backed checks should reflect the final release, run `npm run acceptance -- --live` once now (a few cents, about 10 minutes).
+5. `npm run handover`. It regenerates `release/RELEASE-MANIFEST.json` (and `service-expert.manifest.json`), runs the offline acceptance checks, prints the status table, the current git SHA and a checklist of what still needs a person (A09 Office, A11 dogfood, the MODEL.md approval line, any `pendingEvidence`). It never commits.
+6. Commit what it regenerated (`git add -A`, check `git status` first, then a plain `git commit`).
+7. Run `git rev-parse HEAD`. That is the final handover SHA; record it in the handover note. The manifest names the commit it was built from, so it cannot name its own commit; that is expected.
 
 ## 10. Troubleshooting
 
@@ -154,7 +158,7 @@ node scripts/release-manifest.mjs --check
 | `DRAFT_EXISTS` | A draft for the next version is already there | Use **Replace the existing draft**, or delete the draft files |
 | Qualification shows a FAIL | A rule or test does not hold on the live AI | Open the failing row for the reasons; re-propose with a clearer lesson |
 | A qualification job disappears after a restart | Jobs live in memory | Start the qualification again |
-| "Too many attempts" at sign-in | Wrong passcode too often | Wait ten minutes or restart the server |
+| "Too many attempts" at sign-in | Wrong passcode too often for that name | Wait ten minutes or restart the server. If everybody is locked out at once, `TRUST_PROXY` is probably not set behind the load balancer (section 2) |
 | "Deployment is not installed" / `OFFICE_NOT_CONFIGURED` | `config/office.json` missing or incomplete | Create it from `config/office.example.json`; the message lists the missing fields |
 | `OFFICE_AWS_ERROR` | AWS sign-in missing or not allowed | `aws sso login` (or your usual sign-in); confirm the customer's delegated access |
 | `npm test` complains about a directory | Wrong test command on Node 24 | Use `npm test` (it passes a file glob) |

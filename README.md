@@ -35,8 +35,8 @@ Pick **I'm looking for a job** or **I'm a SAFI Trainer**, type your name, type t
 
 1. **Look around.** The **Template tree** shows the three rule books: the root rules (`safi.agent`), the career coach (`safi.career`) and the CS job search coach (`safi.cs-graduate-jobseeker`). Pick one to see what it inherited from its parent ("Inherited from...") and what it added ("Added here"), plus its checks, skills and knowledge.
 2. **Teach.** On **Train & qualify**, choose the version, describe the correction in plain words, press **Propose a refinement**. The AI drafts a rule and a regression test; you can read it as cards or as raw JSON. It cannot give the coach new tools.
-3. **Test.** Press **Run qualification**. Every earlier test and the new one run on the real AI (about 4 to 6 minutes). Each test shows PASS or FAIL with its evidence.
-4. **Publish.** Only when everything passes, type your name and press **Approve and publish**. A new version (for example 1.0.1) appears. The old one is unchanged, and so are coaches already created from it.
+3. **Test.** Press **Run qualification**. Every earlier test and the new one run on the real AI (about 3 to 4 minutes). Each test shows PASS or FAIL with its evidence.
+4. **Publish.** Only when everything passes, type your name and press **Approve and publish**. A new version (for example 1.0.1) appears. The old one is unchanged, and so are coaches already created from it. When the Factory runs inside a git repository, the release (the new template file, `registry/index.json` and `release/<version>/`) is also saved as one git commit named `publish <version> approved by <your name>`; if that commit fails the publish still stands and the page tells you to commit by hand.
 5. **Office.** The **Office** page sends published coaches to the customer's own cloud office. That needs the customer's AWS account set up first (see below).
 
 ## One-command instantiation
@@ -73,7 +73,7 @@ It does not apply for jobs, send email, scrape job sites, use anyone's passwords
 - **The AI is a hosted service.** Candidate profile, resume and job text are sent to Anthropic when a coach runs. This needs the candidate's consent (the profile form asks) and the customer's approval; see [MODEL.md](MODEL.md).
 - **Qualification is slow and in memory.** It takes minutes, and if the server restarts in the middle, start it again.
 - **The AI service can say no.** A run can end as "Blocked by its safety checks" or "the AI service is busy". These are shown as failures with the reason; there is never a made-up answer in their place.
-- **The Office has no sample job or resume files.** There, candidates must paste real job text.
+- **Agents made on the command line are not visible in the web app.** `node factory.mjs instantiate` creates an agent with no web owner, so use `node factory.mjs run` for it, or create agents in the app.
 - **Not built, by design:** fine-tuning, auto-apply, email, scraping, a general workflow designer, a second chat platform, multi-agent systems. Service 013 (the Service Expert platform) is not connected yet; the exact deferral is recorded in [service-expert.manifest.json](service-expert.manifest.json).
 
 ---
@@ -93,7 +93,7 @@ server/ + openapi.yaml  Express API (/api/v1) that calls factory.mjs exports; Op
 client/                 React + Vite single-page app (Template tree, My coach, Train & qualify, Office)
 deploy-office.mjs       bundle, upload to S3, install through SSM, restart, status
 office/                 install.sh, fetch-secrets.sh, systemd unit for the Office
-scripts/                acceptance.mjs, release-manifest.mjs, office-local.mjs, verify-model.mjs, rehash.mjs
+scripts/                acceptance.mjs, handover.mjs, release-manifest.mjs, office-local.mjs, verify-model.mjs, rehash.mjs (dev only)
 config/                 office-grants.json (tools the customer allows), office.example.json
 fixtures/ + tests/      synthetic profile, resume and job postings; node:test suites
 data/                   private runtime data (git-ignored): agents, run records, outputs
@@ -111,19 +111,20 @@ Stack: Node.js (ESM `.mjs`), Express 5.3.0, Ajv 8.20.0 strict mode with JSON Sch
 | `npm run setup` | `npm ci`, install and build the client |
 | `npm start` | Start the server (loads `.env`), http://localhost:8017 |
 | `npm run dev` | Vite dev server for the client |
-| `npm test` | Offline test suite (stub model, no key; about 180 tests) |
+| `npm test` | Offline test suite (stub model, no key; about 190 tests, takes a few minutes) |
 | `npm run test:live` | Real-model tests; needs `ANTHROPIC_API_KEY`; spends a few cents |
 | `npm run verify` | Re-hash every released template, skill and knowledge file against the registry |
 | `npm run verify:model` | Find the newest model id the key accepts |
-| `npm run acceptance` | Acceptance checks A01 to A11 offline; writes `ACCEPTANCE.json` and `evidence/<timestamp>/` |
+| `npm run acceptance` | Acceptance checks A01 to A11 offline; writes `ACCEPTANCE.json` and `evidence/<timestamp>/`. The real-model results (A05 to A08, A10) from the last `--live` run are carried forward with their time, not downgraded |
 | `npm run acceptance -- --live` | Also the real-model checks (about 10 minutes) |
 | `npm run release:manifest` | Write `release/RELEASE-MANIFEST.json` (SHA-256 of every release file, git SHA) |
+| `npm run handover` | Final step: regenerate the manifest, run offline acceptance, print the git SHA and the list of items only people can finish (see RUNBOOK section 9) |
 | `npm run office:local` | Run the Office bundle locally in office mode on port 8018 |
 | `npm run deploy:office -- --dry-run` | Show what a deployment would do (also `--deploy`, `--status`, `--restart`) |
 
 ## Environment variables
 
-`ANTHROPIC_API_KEY`, `LLM_BASE_URL` (default `https://api.anthropic.com/v1/`), `LLM_MODEL` (default `claude-sonnet-5-5`), `CANDIDATE_PASSCODE`, `TRAINER_PASSCODE`, `SESSION_SECRET` (optional), `PORT` (8017), `HOST` (127.0.0.1), `SAFI_MODE` (`factory` or `office`), `SAFI_DATA_DIR`, `COOKIE_SECURE`. See `.env.example`.
+`ANTHROPIC_API_KEY`, `LLM_BASE_URL` (default `https://api.anthropic.com/v1/`), `LLM_MODEL` (default `claude-sonnet-5-5`), `CANDIDATE_PASSCODE`, `TRAINER_PASSCODE`, `SESSION_SECRET` (optional), `PORT` (8017), `HOST` (127.0.0.1), `SAFI_MODE` (`factory` or `office`), `SAFI_DATA_DIR`, `COOKIE_SECURE`, `TRUST_PROXY` (`false` by default; set `1` behind one load balancer so sign-in throttling sees each caller). See `.env.example`.
 
 ## API
 

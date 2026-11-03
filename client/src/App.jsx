@@ -81,7 +81,7 @@ export default function App() {
   const [me, setMe] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [bootError, setBootError] = useState(null);
-  const [view, setView] = useState(() => window.location.hash.slice(1) || 'use');
+  const [view, setView] = useState(() => window.location.hash.slice(1));
   const [pendingTemplate, setPendingTemplate] = useState(null);
 
   const refresh = useCallback(async () => {
@@ -89,7 +89,7 @@ export default function App() {
   }, []);
   useEffect(() => { setSignedOutHandler(() => setMe((m) => (m ? { ...m, authenticated: false } : m))); refresh(); }, [refresh]);
   useEffect(() => {
-    const on = () => setView(window.location.hash.slice(1) || 'use');
+    const on = () => setView(window.location.hash.slice(1));
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
@@ -107,7 +107,8 @@ export default function App() {
     { id: 'tree', label: 'Template tree' },
     ...(canTrain ? [{ id: 'train', label: 'Train & qualify' }, { id: 'office', label: 'Office' }] : [])
   ];
-  const cur = nav.some((n) => n.id === view) ? view : 'use';
+  // A Trainer lands on the Template tree; a job seeker on My coach. A bookmarked page (#train, #use...) still wins.
+  const cur = nav.some((n) => n.id === view) ? view : (trainer ? 'tree' : 'use');
   const signOut = async () => { try { await api('DELETE', '/session'); } finally { setMe({ ...me, authenticated: false }); window.location.hash = ''; } };
 
   return (

@@ -34,6 +34,7 @@ const OPTIONAL = {
   prefix: { re: /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/, def: 'safi-office/releases', help: 'S3 key prefix for bundles.' },
   port: { def: 8017, help: 'TCP port of the Office web server.' },
   bindHost: { re: /^(127\.0\.0\.1|0\.0\.0\.0)$/, def: '127.0.0.1', help: 'Address the server binds on the instance: 127.0.0.1 or 0.0.0.0 only (use 0.0.0.0 only behind a restricted security group).' },
+  trustProxy: { re: /^(false|[0-9]{1,2}|loopback)$/, def: 'false', help: 'How many reverse proxies (for example one Application Load Balancer) sit in front of the Office: "false" (none, the default), a number such as "1", or "loopback". Set "1" behind an ALB so the passcode throttle sees each caller, not the load balancer.' },
   publicUrl: { re: /^https?:\/\/[^\s'"`$\\]+$/, def: null, help: 'URL Chrome uses to reach the Office (shown in reports).' },
   kmsKeyId: { re: /^[A-Za-z0-9:/_-]+$/, def: null, help: 'Optional KMS key id/ARN for S3 SSE (default: S3-managed AES256).' }
 };
@@ -261,7 +262,7 @@ export function plan(cfg, built) {
     [
       'bash "$STAGE/office/install.sh"', '--bundle-file "$STAGE/bundle.tgz"',
       `--sha ${q(bundleSha)}`, `--release ${q(releaseId)}`, `--region ${q(cfg.region)}`, `--port ${cfg.port}`, `--host ${q(cfg.bindHost)}`,
-      `--secure-cookie ${cfg.publicUrl?.startsWith('https://') ? 1 : 0}`,
+      `--secure-cookie ${cfg.publicUrl?.startsWith('https://') ? 1 : 0}`, `--trust-proxy ${q(cfg.trustProxy ?? 'false')}`,
       `--secret-param ${q(cfg.secretParameterName)}`, `--candidate-param ${q(cfg.candidatePasscodeParameterName)}`, `--trainer-param ${q(cfg.trainerPasscodeParameterName)}`
     ].join(' ')
   ];

@@ -20,14 +20,18 @@ export class ErrorBoundary extends Component {
   }
 }
 
-export function useElapsed(running) {
+/** Seconds since `since` (an ISO time from the server, so the total survives leaving the page) or since this started. */
+export function useElapsed(running, since) {
   const [s, setS] = useState(0);
   useEffect(() => {
     if (!running) { setS(0); return undefined; }
-    const t0 = Date.now();
-    const t = setInterval(() => setS(Math.floor((Date.now() - t0) / 1000)), 1000);
+    const parsed = since ? Date.parse(since) : NaN;
+    const t0 = Number.isFinite(parsed) ? parsed : Date.now();
+    const tick = () => setS(Math.max(0, Math.floor((Date.now() - t0) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [running]);
+  }, [running, since]);
   return s;
 }
 export const fmtElapsed = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -62,15 +66,15 @@ export function Notice({ tone = 'info', title, children }) {
 }
 
 /** Progress block for long model calls: elapsed time, expectation, server progress text. */
-export function Progress({ running, label, expect, text }) {
-  const s = useElapsed(running);
+export function Progress({ running, label, expect, text, since }) {
+  const s = useElapsed(running, since);
   if (!running) return null;
   return (
     <div className="progress" role="status" aria-live="polite">
       <span className="spinner big" aria-hidden="true" />
       <div>
         <strong>{label}</strong>
-        <p>{text || 'Working on it...'} <span className="mono">{fmtElapsed(s)}</span></p>
+        <p>{text || 'Working on it...'} <span className="mono" title="Total time so far">{fmtElapsed(s)}</span> <span className="muted">in total</span></p>
         <p className="muted">{expect}</p>
       </div>
     </div>
@@ -87,7 +91,7 @@ export function CopyText({ value, label, short }) {
   return (
     <button type="button" className="sha" onClick={copy} title={`${label || 'Copy'}: ${value}`} aria-label={`Copy ${label || 'value'}`}>
       <span className="mono">{short ? shortSha(value) : value}</span>
-      <span className="sha-tag">{done ? 'Copied' : 'Copy'}</span>
+      <span className="sha-tag" role="status" aria-live="polite">{done ? 'Copied' : 'Copy'}</span>
     </button>
   );
 }

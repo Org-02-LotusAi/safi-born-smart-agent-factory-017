@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { compile } from '../lib/compiler.mjs';
 import { hashText } from '../lib/canonical.mjs';
@@ -49,6 +49,26 @@ test('instantiate writes an immutable manifest pinning ancestry, skills, knowled
     assert.deepEqual(getInstance(m.instanceId, opts).manifest, m);
     // The manifest is marked read-only where the file system supports it.
     if (process.platform !== 'win32') assert.equal(statSync(path.join(dir, 'manifest.json')).mode & 0o222, 0);
+  }));
+
+test('listInstances skips a malformed instance folder (empty dir, missing profile) instead of failing the whole list', () =>
+  withRoot((root, opts) => {
+    const a = instantiate(T2, profile(), opts);
+    const base = path.dirname(instanceDir(a.instanceId, opts));
+    mkdirSync(path.join(base, 'half-created'), { recursive: true });
+    const b = instantiate(T2, profile(), { ...opts, name: 'Second' });
+    rmSync(path.join(instanceDir(b.instanceId, opts), 'profile.json'));
+    const orig = console.error;
+    const logged = [];
+    console.error = (m) => logged.push(String(m));
+    try {
+      const list = listInstances(opts);
+      assert.deepEqual(list.map((m) => m.instanceId), [a.instanceId]);
+    } finally {
+      console.error = orig;
+    }
+    assert.equal(logged.length, 2);
+    assert.ok(logged.every((l) => /Skipping instance folder/.test(l)));
   }));
 
 test('two instances from the same template get distinct permanent ids and separate directories', () =>
@@ -172,3 +192,27 @@ test('getInstance rejects malformed ids (no path traversal) and unknown ids', ()
     assert.throws(() => getInstance('../../etc', opts), codeIs('BAD_INSTANCE_ID'));
     assert.throws(() => getInstance('123e4567-e89b-42d3-a456-426614174000', opts), codeIs('INSTANCE_NOT_FOUND'));
   }));
+
+test('scripts/rehash.mjs refuses to re-digest an edited released file unless --force-dev; a clean copy is a no-op', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const run = (root, ...flags) => spawnSync(process.execPath, [path.join(REPO, 'scripts', 'rehash.mjs'), ...flags], { env: { ...process.env, REHASH_ROOT: root }, encoding: 'utf8' });
+  const root = makeRoot();
+  try {
+    const before = readFileSync(path.join(root, 'registry', 'index.json'), 'utf8');
+    assert.equal(run(root).status, 0, 'unchanged released files re-digest to the same values');
+    assert.equal(readFileSync(path.join(root, 'registry', 'index.json'), 'utf8'), before);
+    const f = path.join(root, 'templates', `${T2}.json`);
+    const t = JSON.parse(readFileSync(f, 'utf8'));
+    t.description = `${t.description ?? ''} edited`;
+    writeFileSync(f, JSON.stringify(t, null, 2) + '\n');
+    const refused = run(root);
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /Refusing to rehash[\s\S]*safi\.cs-graduate-jobseeker@1\.0\.0/);
+    assert.equal(readFileSync(path.join(root, 'registry', 'index.json'), 'utf8'), before, 'nothing was rewritten');
+    const forced = run(root, '--force-dev');
+    assert.equal(forced.status, 0);
+    assert.match(forced.stderr, /RE-DIGESTING RELEASED FILES/);
+  } finally {
+    cleanup(root);
+  }
+});

@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as factory from '../factory.mjs';
 import { ApiError, errorBody, toApiError } from './errors.mjs';
 import { Jobs } from './jobs.mjs';
-import { COOKIE, OwnerIndex, cleanName, SESSION_HOURS, makeToken, ownerLabel, parseCookies, readToken, resolvePasscodes, resolveSecret, safeEqual } from './auth.mjs';
+import { COOKIE, OwnerIndex, cleanName, SESSION_HOURS, makeToken, ownerLabel, parseCookies, parseTrustProxy, readToken, resolvePasscodes, resolveSecret, safeEqual } from './auth.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = '/api/v1';
@@ -49,11 +49,12 @@ export function createApp(opts = {}) {
   const jobs = new Jobs({ log });
   const fo = { root, dataDir, ...(opts.llm ? { llm: opts.llm } : {}), ...(opts.model ? { model: opts.model } : {}) };
   const modelFn = opts.llm ?? factory.callModel;
-  const failures = new Map(); // ip -> { count, resetAt }: slows passcode guessing
+  const failures = new Map(); // key -> { count, resetAt }: slows passcode guessing (see /session)
 
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', false);
+  // TRUST_PROXY (env) or opts.trustProxy: how many proxy hops to believe for req.ip. Default false (socket address).
+  app.set('trust proxy', opts.trustProxy ?? parseTrustProxy(env.TRUST_PROXY));
 
   // ---- security headers, request id, logging ----
   app.use((req, res, next) => {
@@ -154,17 +155,22 @@ export function createApp(opts = {}) {
       throw bad(role === 'trainer' ? 'Please type your name. It is recorded on every release you approve.' : 'Please type your name so your agents and results stay separate from other people\'s.',
         'Use 1 to 80 characters, for example your first and last name.');
     }
+    // Throttle per ip + role + name, so one person's typos (or one attacker) cannot lock everyone else out, plus a
+    // much looser per-ip ceiling so rotating names is not free. Behind a load balancer set TRUST_PROXY so req.ip is the caller.
     const ip = req.ip ?? 'unknown';
+    const keys = [{ k: `${ip}|${role}|${cleaned.toLowerCase()}`, max: 8 }, { k: `${ip}|*`, max: 40 }];
     for (const [k, v] of failures) if (v.resetAt <= Date.now()) failures.delete(k);
-    const f = failures.get(ip);
-    if (f && f.count >= 8 && f.resetAt > Date.now()) {
+    if (keys.some(({ k, max }) => (failures.get(k)?.count ?? 0) >= max)) {
       throw new ApiError(429, 'TOO_MANY_ATTEMPTS', 'Too many wrong passcodes in a row.', 'Wait ten minutes, then try again.');
     }
     if (!passcode || !safeEqual(passcode, passcodes[role])) {
-      failures.set(ip, { count: (f && f.resetAt > Date.now() ? f.count : 0) + 1, resetAt: f && f.resetAt > Date.now() ? f.resetAt : Date.now() + 10 * 60_000 });
+      for (const { k } of keys) {
+        const f = failures.get(k);
+        failures.set(k, { count: (f ? f.count : 0) + 1, resetAt: f ? f.resetAt : Date.now() + 10 * 60_000 });
+      }
       throw new ApiError(401, 'WRONG_PASSCODE', 'That passcode is not right.', 'Check it and try again, or ask the SAFI Trainer for the passcode.');
     }
-    failures.delete(ip);
+    failures.delete(keys[0].k);
     const exp = Date.now() + SESSION_HOURS * 3600_000;
     const token = makeToken(secret, { role, name: cleaned, exp });
     const secure = env.COOKIE_SECURE === '1' ? '; Secure' : '';
@@ -324,7 +330,9 @@ export function createApp(opts = {}) {
   route('post', '/drafts/:ref/approve', authoring, (req, res) => {
     const trainer = (req.body?.trainer ?? req.session.name ?? '').toString().trim();
     if (!str(trainer, 120)) throw bad('Type the Trainer name that will be recorded on the release.');
-    res.json({ ...factory.approve(req.params.ref, { trainer }, fo), approvedByRole: req.session.role });
+    // In factory mode inside a git work tree the release is also committed (templates/<ref>.json, registry/index.json, release/<ref>/).
+    // A failed commit never undoes the publish: the response carries `gitWarning` and the app shows it.
+    res.json({ ...factory.approve(req.params.ref, { trainer }, { ...fo, gitCommitSoft: mode === 'factory' }), approvedByRole: req.session.role });
   });
 
   // ---- deployment (Task 6 supplies deploy-office.mjs) ----

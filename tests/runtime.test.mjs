@@ -8,7 +8,7 @@ import { compile } from '../lib/compiler.mjs';
 import { instantiate, getInstance } from '../lib/instance.mjs';
 import {
   run, getRun, listRuns, interviewFeedback, approveOutput, exportOutput, runBehavioralTest,
-  buildInstructions, buildInput, wrapUntrusted, detectInjection, parseModelJson, loadJobFixture
+  buildInstructions, buildInput, EMPLOYED_AS, wrapUntrusted, detectInjection, parseModelJson, loadJobFixture
 } from '../lib/runtime.mjs';
 import { REPO, makeRoot, cleanup, profile, codeIs, readFixture, addTemplate } from './helpers.mjs';
 
@@ -543,5 +543,14 @@ test('a run on a template whose constraints name capstone-not-employment FAILS i
     assert.equal(ok.status, 'PASS');
   } finally {
     cleanup(root);
+  }
+});
+
+test('employment-claim pattern: honest "served as" student lines pass; paid or employment wording and "worked as" still flag', () => {
+  for (const ok of ['Served as team lead on the capstone project.', 'Served as the scrum master for a four-person class project.', 'Served as treasurer of the Computer Science Club.']) {
+    assert.equal(EMPLOYED_AS.test(ok), false, ok);
+  }
+  for (const bad of ['Served as a paid software engineer at Acme.', 'Served as a full-time developer for two summers.', 'Employed as a developer at Acme.', 'Worked as a software engineer at Acme', 'Completed an internship at Northwind.', 'Part-time role where I served as lead developer.']) {
+    assert.equal(EMPLOYED_AS.test(bad), true, bad);
   }
 });

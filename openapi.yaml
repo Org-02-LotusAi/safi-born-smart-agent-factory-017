@@ -382,7 +382,7 @@ paths:
                 trainer: { type: string, description: Name recorded on the release. Defaults to the name used at sign-in. }
       responses:
         '200':
-          description: Release record, plus approvedByRole.
+          description: Release record, plus approvedByRole. In factory mode inside a git work tree the release is also committed (gitCommit = commit sha); if that commit fails the publish still stands and gitWarning explains.
           content:
             application/json:
               schema: { type: object }

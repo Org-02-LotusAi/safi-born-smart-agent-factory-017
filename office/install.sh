@@ -27,7 +27,7 @@ HEALTH_SLEEP="${SAFI_HEALTH_SLEEP:-2}"
 die() { echo "INSTALL FAILED: $*" >&2; exit 1; }
 say() { echo "[install] $*"; }
 
-BUNDLE_FILE='' BUCKET='' KEY='' SHA='' RELEASE='' REGION='' PORT='8017' HOST='127.0.0.1' SECURE_COOKIE='0'
+BUNDLE_FILE='' BUCKET='' KEY='' SHA='' RELEASE='' REGION='' PORT='8017' HOST='127.0.0.1' SECURE_COOKIE='0' TRUST_PROXY='false'
 SECRET_PARAM='' CANDIDATE_PARAM='' TRAINER_PARAM=''
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || die "option $1 needs a value"
@@ -41,6 +41,7 @@ while [ $# -gt 0 ]; do
     --port) PORT=$2 ;;
     --host) HOST=$2 ;;
     --secure-cookie) SECURE_COOKIE=$2 ;;
+    --trust-proxy) TRUST_PROXY=$2 ;;
     --secret-param) SECRET_PARAM=$2 ;;
     --candidate-param) CANDIDATE_PARAM=$2 ;;
     --trainer-param) TRAINER_PARAM=$2 ;;
@@ -62,6 +63,7 @@ for v in SECRET_PARAM CANDIDATE_PARAM TRAINER_PARAM; do
   case "${!v}" in *[!A-Za-z0-9/_.-]*) die "parameter name for $v has unsafe characters" ;; esac
 done
 case "$SECURE_COOKIE" in 0|1) ;; *) die "--secure-cookie must be 0 or 1" ;; esac
+case "$TRUST_PROXY" in false|loopback|[0-9]|[0-9][0-9]) ;; *) die "--trust-proxy must be false, loopback or a number such as 1" ;; esac
 if [ -z "$BUNDLE_FILE" ] && { [ -z "$BUCKET" ] || [ -z "$KEY" ]; }; then
   die "give --bundle-file or --bucket and --key"
 fi
@@ -137,6 +139,7 @@ PORT=$PORT
 HOST=$HOST
 GIT_SHA=$RELEASE
 COOKIE_SECURE=$SECURE_COOKIE
+TRUST_PROXY=$TRUST_PROXY
 AWS_REGION=$REGION
 SECRET_PARAM=$SECRET_PARAM
 CANDIDATE_PASSCODE_PARAM=$CANDIDATE_PARAM

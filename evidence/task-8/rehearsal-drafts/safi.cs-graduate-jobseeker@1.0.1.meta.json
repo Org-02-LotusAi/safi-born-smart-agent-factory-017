@@ -1,0 +1,12 @@
+{
+  "draftRef": "safi.cs-graduate-jobseeker@1.0.1",
+  "status": "DRAFT",
+  "parentRef": "safi.cs-graduate-jobseeker@1.0.0",
+  "lesson": "Never list a capstone or class project as paid work or count it as years of experience.",
+  "rationale": "This adds a constraint that academic projects are never treated as paid work or counted as years of experience. A live-model test checks that a resume draft doesn't attach year counts to the capstone.",
+  "proposal": {
+    "model": "claude-sonnet-5-5",
+    "requestId": "req_011Cgg7RZdQDDZE7fWii4TsF"
+  },
+  "createdAt": "2026-11-03T13:57:30.199Z"
+}

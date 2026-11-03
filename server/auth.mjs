@@ -121,3 +121,23 @@ export class OwnerIndex {
     renameSync(tmp, this.file);
   }
 }
+
+/**
+ * TRUST_PROXY -> value for Express `trust proxy`.
+ * unset / "" / "false" / "0" -> false (use the socket address). A hop count ("1" behind one ALB) or a
+ * comma-separated list of "loopback", "linklocal", "uniquelocal" or CIDR/IP addresses is passed through.
+ * "true" is refused on purpose: it would believe any X-Forwarded-For the caller sends.
+ */
+export function parseTrustProxy(value) {
+  if (value === undefined || value === null) return false;
+  const v = String(value).trim();
+  if (v === '' || /^(false|0|no|off)$/i.test(v)) return false;
+  if (/^(true|yes|on)$/i.test(v)) {
+    throw new Error('TRUST_PROXY=true would trust any X-Forwarded-For header a caller sends. Use a hop count such as 1 (one load balancer in front), or "loopback", or the address range of your load balancer.');
+  }
+  if (/^\d+$/.test(v)) return Number(v);
+  const parts = v.split(',').map((x) => x.trim()).filter(Boolean);
+  const ok = parts.every((x) => /^(loopback|linklocal|uniquelocal)$/i.test(x) || /^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(x));
+  if (!ok) throw new Error(`TRUST_PROXY="${v}" is not understood. Use false, a number such as 1, "loopback", or a list of addresses.`);
+  return parts.length === 1 ? parts[0] : parts;
+}

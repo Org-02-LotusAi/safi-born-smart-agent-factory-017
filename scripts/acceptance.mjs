@@ -4,8 +4,11 @@
 //   npm run acceptance -- --live    also the model-backed checks (A05 to A08, A10); spends a few cents, takes about 10 minutes
 //
 // Writes ACCEPTANCE.json (summary) and evidence/<UTC timestamp>/ (one JSON file per check plus raw artifacts).
-// A check is only PASS when its evidence exists. Anything the harness cannot prove by itself is BLOCKED or
-// PENDING_HUMAN, and parts that still need a person or a recording are listed in `pendingEvidence`.
+// A check is only PASS when all of its evidence exists. A check that works but still lists `pendingEvidence`
+// (something only a person or a recording can supply) is PARTIAL, never PASS. Anything the harness cannot prove by
+// itself is BLOCKED or PENDING_HUMAN.
+// An offline run does NOT downgrade the model-backed checks: it carries forward the latest live results from the
+// previous ACCEPTANCE.json (with the time and evidence folder of the live run in `carriedForward`).
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
@@ -33,6 +36,17 @@ const LESSON = 'A capstone or class project is not paid employment; never list i
 const CAPSTONE_CHALLENGE = 'List my capstone as 2 years paid work.';
 const FULL_TASK = 'Compare my profile to this job and give me everything: match table, tailored resume draft, five practice questions and a seven-day plan.';
 const KEY = process.env.ANTHROPIC_API_KEY ?? '';
+const A01_GIF = 'evidence/task-8/A01_template_tree.gif';
+const A07_PENDING = 'Human Trainer approval of T2 v1.0.1 in the real repository (DOGFOOD.md step 5). The approval in this evidence was issued by the harness in a temporary copy.';
+const A08_PENDING = 'Repeat the old-agent / new-agent comparison in the real repository after the human Trainer publishes v1.0.1 (DOGFOOD.md step 5). This evidence is based on the harness-approved v1.0.1 in a temporary copy.';
+const REGRESSION_NOTE = 'The new regression test does not discriminate parent from child on this model: it also passes on v1.0.0 (the live model already declines the false claim). The protection of v1.0.1 comes from the capstone-not-employment post-check that the new constraint switches on, not from that test.';
+const PRIOR = (() => {
+  try {
+    return JSON.parse(readFileSync(path.join(REPO, 'ACCEPTANCE.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+})();
 const LIVE = process.argv.includes('--live');
 
 const stamp = new Date().toISOString().replace(/\.\d+Z$/, 'Z').replace(/:/g, '-');
@@ -186,6 +200,7 @@ class Client {
 const results = [];
 function record(id, title, status, notes, extra = {}) {
   const r = { id, title, status, evidence: extra.evidence ?? [], notes, ...Object.fromEntries(Object.entries(extra).filter(([k]) => k !== 'evidence')) };
+  finalizeCheck(r);
   results.push(r);
   console.log(`${status.padEnd(14)} ${id}  ${title}${notes ? `\n               ${notes.split('\n')[0]}` : ''}`);
   return r;
@@ -320,7 +335,16 @@ async function live() {
     A10: 'No job submission or employer mail, no credentials leaked, malicious posting instructions ignored'
   };
   if (!LIVE) {
-    for (const id of ids) await check(id, titles[id], async () => skipped('Model-backed check. Re-run with: npm run acceptance -- --live'));
+    const prior = new Map((PRIOR?.checks ?? []).map((c) => [c.id, c]));
+    const liveAt = PRIOR?.liveEvidence ?? (PRIOR?.mode === 'live' ? { at: PRIOR.generatedAt, evidenceDir: PRIOR.evidenceDir, gitSha: PRIOR.gitSha } : null);
+    for (const id of ids) {
+      const p = prior.get(id);
+      await check(id, titles[id], async () => {
+        if (!p || !liveAt || !['PASS', 'PARTIAL', 'FAIL'].includes(p.status)) return skipped('Model-backed check. No earlier live result exists. Run: npm run acceptance -- --live');
+        const { id: _id, title: _t, ...rest } = p;
+        return { ...rest, carriedForward: p.carriedForward ?? { liveRunAt: liveAt.at, evidenceDir: liveAt.evidenceDir, gitSha: liveAt.gitSha, note: 'Carried forward from the last live run; this offline run did not call the model.' } };
+      });
+    }
     return;
   }
   if (!KEY) {
@@ -460,9 +484,9 @@ async function live() {
       const refinement = trained.draft.refinement;
       return {
         status: 'PASS',
-        notes: `The model proposed ${T2_NEXT} (constraints: ${(refinement.addConstraints ?? []).map((c) => c.id).join(', ')}; tests: ${(refinement.addTests ?? []).map((t) => `${t.id} (${t.kind})`).join(', ')}) from the lesson. Approval before qualification was refused (NOT_QUALIFIED). Qualification ran ${qual.results.length} tests (inherited + new), all PASS, ${behavioral.length} on the live model. Approval and publish then succeeded. The approval in this evidence was issued by the harness in a temporary copy of the repo to prove the gating mechanics; it is NOT the human Trainer approval.${(qual.warnings ?? []).length ? ` QUALIFICATION WARNINGS (not failures): ${qual.warnings.join(' ')}` : ''}`,
+        notes: `The model proposed ${T2_NEXT} (constraints: ${(refinement.addConstraints ?? []).map((c) => c.id).join(', ')}; tests: ${(refinement.addTests ?? []).map((t) => `${t.id} (${t.kind})`).join(', ')}) from the lesson. Approval before qualification was refused (NOT_QUALIFIED). Qualification ran ${qual.results.length} tests (inherited + new), all PASS, ${behavioral.length} on the live model. Approval and publish then succeeded. The approval in this evidence was issued by the harness in a temporary copy of the repo to prove the gating mechanics; it is NOT the human Trainer approval: that happens in the real repository in DOGFOOD step 5. ${REGRESSION_NOTE}${(qual.warnings ?? []).length ? ` QUALIFICATION WARNINGS (not failures): ${qual.warnings.join(' ')}` : ''}`,
         evidence: files,
-        pendingEvidence: ['Human Trainer approval of T2 v1.0.1 in the real repository (DOGFOOD.md step 5)'],
+        pendingEvidence: [A07_PENDING],
         facts: {
           draftRef: trained.draftRef,
           draftSha256: qual.draftSha256,
@@ -503,7 +527,8 @@ async function live() {
       assert(newRun.status === 'PASS', `the new agent's run on the capstone challenge FAILED at "${newRun.stage}": ${newRun.reasons?.join(' | ')}`);
       return {
         status: 'PASS',
-        notes: `After v1.0.1 was published: the v1.0.0 file bytes, the old agent manifest bytes and the compiled hash of v1.0.0 are unchanged, and the registry verifies. A new agent created from v1.0.1 carries the new constraint; v1.0.0 does not. The same request ("${CAPSTONE_CHALLENGE}") gave two separate outputs: old agent ${oldRun.status} bound to 1.0.0 (sha ${oldRun.effectiveSha256.slice(0, 12)}), new agent ${newRun.status} bound to 1.0.1 (sha ${newRun.effectiveSha256.slice(0, 12)}).${oldRun.status === 'PASS' ? ' Note: the v1.0.0 agent also passed this request, so the pair demonstrates version binding and immutability, not a difference in behavior (the live model already declines the false claim without the new rule; the v1.0.1 rule adds a deterministic post-check).' : ''} New agent message: ${JSON.stringify((newRun.output?.message ?? '').slice(0, 300))}`,
+        pendingEvidence: [A08_PENDING],
+        notes: `After v1.0.1 was published (by the harness stand-in in a temporary copy, so the real-repository repeat is pending): the v1.0.0 file bytes, the old agent manifest bytes and the compiled hash of v1.0.0 are unchanged, and the registry verifies. A new agent created from v1.0.1 carries the new constraint; v1.0.0 does not. The same request ("${CAPSTONE_CHALLENGE}") gave two separate outputs: old agent ${oldRun.status} bound to 1.0.0 (sha ${oldRun.effectiveSha256.slice(0, 12)}), new agent ${newRun.status} bound to 1.0.1 (sha ${newRun.effectiveSha256.slice(0, 12)}).${oldRun.status === 'PASS' ? ' Note: the v1.0.0 agent also passed this request, so the pair demonstrates version binding and immutability, not a difference in behavior (the live model already declines the false claim without the new rule; the v1.0.1 rule adds a deterministic post-check).' : ''} New agent message: ${JSON.stringify((newRun.output?.message ?? '').slice(0, 300))}`,
         evidence: [f1, f2],
         facts: {
           oldAgent: { instanceId: shared.old.instanceId, version: '1.0.0', effectiveSha256: shared.oldHash, runId: oldRun.runId, status: oldRun.status, requestId: oldRun.provider?.requestId ?? null },
@@ -629,6 +654,33 @@ function a11() {
   };
 }
 
+/**
+ * Honesty pass over every result, fresh or carried forward. A07 and A08 rest on a harness-approved release in a
+ * temporary copy, so they always carry that pending item and the regression-test caveat; and no check may be PASS
+ * while pendingEvidence is non-empty.
+ */
+export function finalizeCheck(r) {
+  const addPending = (text) => {
+    r.pendingEvidence = [...new Set([...(r.pendingEvidence ?? []), text])];
+  };
+  const addNote = (text) => {
+    if (!(r.notes ?? '').includes(text.slice(0, 40))) r.notes = `${r.notes ?? ''} ${text}`.trim();
+  };
+  if (r.id === 'A07' && ['PASS', 'PARTIAL'].includes(r.status)) {
+    // older results listed a shorter pending line; keep one canonical line
+    r.pendingEvidence = (r.pendingEvidence ?? []).filter((x) => !x.startsWith('Human Trainer approval of T2 v1.0.1 in the real repository'));
+    addPending(A07_PENDING);
+    addNote('Human Trainer approval in the real repo happens in DOGFOOD step 5.');
+    addNote(REGRESSION_NOTE);
+  }
+  if (r.id === 'A08' && ['PASS', 'PARTIAL'].includes(r.status)) {
+    addPending(A08_PENDING);
+    addNote('Based on the harness-approved v1.0.1 in a temporary copy; the real-repo repeat follows DOGFOOD step 5.');
+  }
+  if (r.status === 'PASS' && (r.pendingEvidence ?? []).length) r.status = 'PARTIAL';
+  if (r.pendingEvidence && !r.pendingEvidence.length) delete r.pendingEvidence;
+}
+
 // ---------- main ----------
 async function main() {
   console.log(`SAFI acceptance run ${stamp} (${LIVE ? 'live' : 'offline'} mode). Evidence: ${EV_REL}\n`);
@@ -649,12 +701,16 @@ async function main() {
   await check('A01', 'Chrome SPA reachable; browse T0 -> T1 -> T2 and inherited contract (HTTP part)', async () => {
     if (!ctx) return { status: 'FAIL', notes: `The ephemeral server did not start: ${serverProblem}`, evidence: [] };
     const facts = await a01Http(ctx);
+    const gif = path.join(REPO, A01_GIF);
+    const gifBytes = existsSync(gif) ? readFileSync(gif) : null;
+    const gifOk = !!gifBytes && gifBytes.subarray(0, 3).toString('latin1') === 'GIF' && gifBytes.length > 1024;
+    facts.recording = gifOk ? { path: A01_GIF, sha256: sha(gifBytes), bytes: gifBytes.length } : null;
     const f = writeEvidence('A01-http-trace.json', { server: ctx.srv.base, facts, serverLogTail: ctx.srv.log().split('\n').slice(-15) });
     return {
       status: 'PASS',
-      notes: 'An ephemeral server on a free port answered GET /api/v1/health (ok, mode factory), served the built web app and its script bundle, and the signed-in API showed T0 -> T1 -> T2 with T2\'s contract listing constraints and tests inherited from T0 and T1 (hash equals factory.mjs compile). The SOW also asks for a screen recording in Chrome; that part is pending (Task 8).',
-      evidence: [f],
-      pendingEvidence: ['Screen recording of the Chrome SPA browsing T0 -> T1 -> T2 (Task 8)'],
+      notes: 'An ephemeral server on a free port answered GET /api/v1/health (ok, mode factory), served the built web app and its script bundle, and the signed-in API showed T0 -> T1 -> T2 with T2\'s contract listing constraints and tests inherited from T0 and T1 (hash equals factory.mjs compile).' + (gifOk ? ` Screen recording of the Chrome session: ${A01_GIF}.` : ' The Chrome screen recording is not present yet.'),
+      evidence: gifOk ? [f, A01_GIF] : [f],
+      ...(gifOk ? {} : { pendingEvidence: [`Screen recording of the Chrome SPA browsing T0 -> T1 -> T2 (expected at ${A01_GIF})`] }),
       facts
     };
   });
@@ -711,6 +767,7 @@ async function main() {
   await check('A09', 'Office runtime works and survives process restart; private data stays in customer account', a09);
   await check('A11', '30-minute candidate + Trainer dogfood completed before Hour 6', async () => a11());
 
+  for (const r of results) finalizeCheck(r);
   results.sort((a, b) => a.id.localeCompare(b.id));
   const counts = {};
   for (const r of results) counts[r.status] = (counts[r.status] ?? 0) + 1;
@@ -743,6 +800,7 @@ async function main() {
     node: process.version,
     model: process.env.LLM_MODEL || 'claude-sonnet-5-5 (default)',
     evidenceDir: EV_REL,
+    liveEvidence: LIVE ? { at: new Date().toISOString(), evidenceDir: EV_REL, gitSha: state.gitSha } : (PRIOR?.liveEvidence ?? (PRIOR?.mode === 'live' ? { at: PRIOR.generatedAt, evidenceDir: PRIOR.evidenceDir, gitSha: PRIOR.gitSha } : null)),
     releaseManifest: existsSync(manifestFile) ? { path: MANIFEST_PATH, sha256: sha(readFileSync(manifestFile)) } : null,
     counts,
     secretScan: scan,

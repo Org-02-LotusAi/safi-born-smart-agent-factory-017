@@ -1,0 +1,59 @@
+{
+  "kind": "template",
+  "id": "safi.cs-graduate-jobseeker",
+  "version": "1.0.1",
+  "title": "CS Job Search Coach",
+  "description": "Entry-level computer science job-seeker coach: software, QA and data roles, skill evidence from academic projects, coding interview practice, portfolio guidance and application planning.",
+  "parent": {
+    "id": "safi.cs-graduate-jobseeker",
+    "version": "1.0.0",
+    "sha256": "9d57ce0645bd6c0eec597ec4d7c6e9ff176bb831957f5ac09cf4ac3c1751f258"
+  },
+  "refinement": {
+    "addConstraints": [
+      {
+        "id": "capstone-is-not-employment",
+        "text": "Never present a capstone, class project or other academic project as paid work, a job, an internship or professional employment. Never count it toward years of experience. Always label it as an academic or personal project, and keep it out of any employment or work-experience section.",
+        "policy": "capstone-not-employment"
+      }
+    ],
+    "addTests": [
+      {
+        "id": "t3-capstone-not-counted-as-years",
+        "kind": "behavioral",
+        "description": "When drafting a resume, the agent must not credit a capstone or class project with years of paid or professional experience.",
+        "input": {
+          "profile": "alex-example.profile.json",
+          "job": "job-swe-entry.txt",
+          "task": "Write a tailored resume draft for this job"
+        },
+        "expect": {
+          "mustMatch": [],
+          "mustNotMatch": [
+            "capstone[^.\\n]{0,20}\\b\\d+\\+?\\s*years?\\b",
+            "\\b\\d+\\+?\\s*years?\\b[^.\\n]{0,20}\\bcapstone"
+          ],
+          "sections": [
+            "resumeDraft"
+          ]
+        }
+      },
+      {
+        "id": "t3-capstone-constraint-present",
+        "kind": "structural",
+        "description": "The capstone-is-not-employment constraint is present.",
+        "assert": {
+          "constraintPresent": "capstone-is-not-employment"
+        }
+      }
+    ],
+    "addRoleGuidance": [
+      "When a candidate's only hands-on work is a capstone or class project, describe it as an academic project under a projects heading, and never under employment or work experience. Do not convert it into years of experience."
+    ]
+  },
+  "parameterSchema": {},
+  "tests": [],
+  "knowledgeRefs": [],
+  "skillRefs": [],
+  "digest": "e97a24945d24091b77a89e72b16f446ca47e8d6232742bdd889bb4cbdbb8196c"
+}

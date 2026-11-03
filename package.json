@@ -16,7 +16,8 @@
     "office:local": "node scripts/office-local.mjs",
     "deploy:office": "node deploy-office.mjs",
     "release:manifest": "node scripts/release-manifest.mjs",
-    "acceptance": "node --env-file-if-exists=.env scripts/acceptance.mjs"
+    "acceptance": "node --env-file-if-exists=.env scripts/acceptance.mjs",
+    "handover": "node scripts/handover.mjs"
   },
   "engines": {
     "node": ">=22.9.0"
