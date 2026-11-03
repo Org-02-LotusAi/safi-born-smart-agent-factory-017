@@ -1,0 +1,95 @@
+{
+  "command": "node --test --test-reporter=tap --test-name-pattern=A03 tests/compiler.test.mjs",
+  "exitCode": 0,
+  "tests": [
+    {
+      "name": "A03 negative 1a: missing parent is rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 1b: a parent pin with no sha256 is rejected by the meta-schema",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 1c: mismatched parent sha256 is rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 2: a cycle in the ancestry is rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 2b: a template that is its own parent is rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 2c: duplicate template id in the chain is rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 3a: changed same-version JSON (digest not updated) is rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 3b: changed same-version JSON with a recomputed digest is rejected by the registry hash",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 3c: changed ancestor re-registered under the same version breaks the child pin",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 3d: a changed skill or knowledge file is detected",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 positive: a trained revision (same id, higher version) may sit directly on its predecessor",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 2d: a same-id parent with a non-increasing version is rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "A03 negative 2e: a template whose parent is its own exact id@version is rejected",
+      "status": "PASS"
+    }
+  ],
+  "groups": {
+    "missing or mismatched parent digest": [
+      {
+        "name": "A03 negative 1a: missing parent is rejected",
+        "status": "PASS"
+      },
+      {
+        "name": "A03 negative 1b: a parent pin with no sha256 is rejected by the meta-schema",
+        "status": "PASS"
+      },
+      {
+        "name": "A03 negative 1c: mismatched parent sha256 is rejected",
+        "status": "PASS"
+      }
+    ],
+    "cycle in the ancestry": [
+      {
+        "name": "A03 negative 2: a cycle in the ancestry is rejected",
+        "status": "PASS"
+      },
+      {
+        "name": "A03 negative 2b: a template that is its own parent is rejected",
+        "status": "PASS"
+      }
+    ],
+    "changed same-version JSON": [
+      {
+        "name": "A03 negative 3a: changed same-version JSON (digest not updated) is rejected",
+        "status": "PASS"
+      },
+      {
+        "name": "A03 negative 3b: changed same-version JSON with a recomputed digest is rejected by the registry hash",
+        "status": "PASS"
+      }
+    ]
+  },
+  "stdoutTail": "  type: 'test'\n  ...\n1..13\n# tests 13\n# suites 0\n# pass 13\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1857.3876\n"
+}

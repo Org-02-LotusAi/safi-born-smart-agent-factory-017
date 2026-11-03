@@ -1,0 +1,7 @@
+{
+  "id": "A05",
+  "title": "Real model agent handles supplied resume and job text, not a canned answer",
+  "status": "SKIPPED",
+  "evidence": [],
+  "notes": "Model-backed check. Re-run with: npm run acceptance -- --live"
+}

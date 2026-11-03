@@ -1,0 +1,298 @@
+{
+  "kind": "run",
+  "runId": "68e17d20-9ab9-483f-b4d9-3e8ba50ca6aa",
+  "instanceId": "52dd48a9-09cb-482e-ac50-aed5e331881a",
+  "startedAt": "2026-11-03T09:28:58.394Z",
+  "task": "Compare my profile to this job and give me everything: match table, tailored resume draft, five practice questions and a seven-day plan.",
+  "templateRef": {
+    "id": "safi.cs-graduate-jobseeker",
+    "version": "1.0.0",
+    "sha256": "9d57ce0645bd6c0eec597ec4d7c6e9ff176bb831957f5ac09cf4ac3c1751f258"
+  },
+  "effectiveSha256": "788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413",
+  "requestedModel": "claude-sonnet-5-5",
+  "inputs": {
+    "job": {
+      "url": "https://example.com/synthetic/northwind-junior-software-engineer",
+      "accessDate": "2026-11-03",
+      "sha256": "8650f7bf99164ec314c0373e09a23b43f9bc9e88ca22d9237813374cfa1b2eaf",
+      "text": "SYNTHETIC SAMPLE JOB POST - written for testing, not a real posting.\n\nJunior Software Engineer (Entry Level) - Northwind Sample Software\nLocation: Remote (US) or Austin, TX\n\nAbout the role\nWe are a small team building scheduling tools for community clinics. This is an entry-level role for a recent computer science graduate who wants to learn on the job.\n\nWhat you will do\n- Build and fix features in our Python web application.\n- Write automated tests for the code you ship.\n- Work with a SQL database and help write reports.\n- Review code with teammates and use Git every day.\n\nRequirements\n- Bachelor's degree in Computer Science or a related field (or graduating soon).\n- Coursework or project experience with Python or JavaScript.\n- Basic knowledge of SQL and relational databases.\n- Familiarity with Git and version control.\n- Comfortable writing unit tests.\n\nNice to have\n- Experience with Docker or cloud services such as AWS.\n- Experience with a web framework such as Flask or Django.\n- Internship experience.\n\nHow to apply\nSend your resume through the application form on our careers page.\n"
+    },
+    "resumeSha256": "693a802a20f10a87528c203e2f5119fab058da8071f816fa68ae0668738d858b"
+  },
+  "usage": {
+    "inputTokens": 10637,
+    "outputTokens": 4665
+  },
+  "instructionsSha256": "aa01b91d3b281dca4cbe1f325a12401e5b4f864e8d2f9672be550727469a11f9",
+  "model": "claude-sonnet-5-5",
+  "provider": {
+    "requestId": "req_011CgfkxnBNgUhEhdSUMFakv",
+    "responseId": "msg_011Cgfkxnhdgg8VdAtjNdK8j"
+  },
+  "modelStartedAt": "2026-11-03T09:28:58.535Z",
+  "modelFinishedAt": "2026-11-03T09:29:31.204Z",
+  "modelDurationMs": 32669,
+  "postChecks": {
+    "injectionHits": [],
+    "overrides": [],
+    "failures": []
+  },
+  "status": "PASS",
+  "reasons": [],
+  "output": {
+    "message": "Hi Alex. I am the CS Job Search Coach, a SAFI AI agent (template safi.cs-graduate-jobseeker@1.0.0). I compared your profile with the Northwind Junior Software Engineer posting, reading the posting only from its own words. Your profile covers every stated requirement through academic work: the capstone, two class projects and your degree. The gaps are in the nice-to-haves (Docker or cloud, and internship experience). I also cannot tell from your profile whether you have done code review. Everything below is a draft until you approve it. I cannot apply, email or contact anyone, so you would submit through the employer's form yourself. Please check the unknowns listed in the resume section. I cannot say whether this will lead to an interview or job.",
+    "matchTable": [
+      {
+        "requirement": "Bachelor's degree in Computer Science or a related field (or graduating soon)",
+        "evidence": "B.S. in Computer Science, Example State University, end year 2026. The profile does not say whether you have already graduated, so confirm how to word the date.",
+        "evidenceIds": [
+          "edu-bs-cs"
+        ],
+        "status": "met"
+      },
+      {
+        "requirement": "Coursework or project experience with Python or JavaScript",
+        "evidence": "Python and Flask in the team capstone (booking API, conflict-checking logic). JavaScript in the class sorting visualizer. Both are academic work.",
+        "evidenceIds": [
+          "proj-capstone-scheduler",
+          "skill-python",
+          "proj-algorithms-visualizer",
+          "skill-javascript"
+        ],
+        "status": "met"
+      },
+      {
+        "requirement": "Comfortable writing unit tests",
+        "evidence": "You wrote the unit tests for the capstone booking API with pytest. The profile says the API is covered by an automated test suite.",
+        "evidenceIds": [
+          "proj-capstone-scheduler",
+          "skill-unit-testing"
+        ],
+        "status": "met"
+      },
+      {
+        "requirement": "Familiarity with Git and version control",
+        "evidence": "Git was used in the capstone team project. The profile does not show details such as branches or pull requests.",
+        "evidenceIds": [
+          "skill-git",
+          "proj-capstone-scheduler"
+        ],
+        "status": "met"
+      },
+      {
+        "requirement": "Basic knowledge of SQL and relational databases",
+        "evidence": "In the Library Database class project you designed a relational schema in PostgreSQL and wrote SQL queries for common reports. The capstone also used SQLite.",
+        "evidenceIds": [
+          "proj-database-course",
+          "skill-sql",
+          "proj-capstone-scheduler"
+        ],
+        "status": "met"
+      },
+      {
+        "requirement": "Duty: build and fix features in a Python web application",
+        "evidence": "You built the booking API in Flask for the capstone. That is academic work, not production work. The profile does not show fixing bugs in an existing codebase.",
+        "evidenceIds": [
+          "proj-capstone-scheduler",
+          "skill-python"
+        ],
+        "status": "partial"
+      },
+      {
+        "requirement": "Duty: help write reports from a SQL database",
+        "evidence": "Your class database project included SQL queries for common reports.",
+        "evidenceIds": [
+          "proj-database-course",
+          "skill-sql"
+        ],
+        "status": "partial"
+      },
+      {
+        "requirement": "Duty: review code with teammates",
+        "evidence": "The profile does not mention code review. Inference only: team capstone work may have involved it, but I cannot say. Please tell me if it did.",
+        "evidenceIds": [],
+        "status": "unknown"
+      },
+      {
+        "requirement": "Nice to have: experience with a web framework such as Flask or Django",
+        "evidence": "Flask was used in the capstone (academic). No Django in the profile.",
+        "evidenceIds": [
+          "proj-capstone-scheduler"
+        ],
+        "status": "met"
+      },
+      {
+        "requirement": "Nice to have: experience with Docker or cloud services such as AWS",
+        "evidence": "The profile shows nothing about Docker or cloud services.",
+        "evidenceIds": [],
+        "status": "gap"
+      },
+      {
+        "requirement": "Nice to have: internship experience",
+        "evidence": "The profile lists no paid employment or internships. This is only a nice-to-have, and academic projects are your honest evidence.",
+        "evidenceIds": [],
+        "status": "gap"
+      }
+    ],
+    "resumeDraft": {
+      "text": "ALEX EXAMPLE\nRemote or Austin, Texas area\n\nEDUCATION\nExample State University - Bachelor of Science, Computer Science (2026)\n\nPROJECTS (academic work)\nCampus Study-Room Scheduler - senior capstone, team project\n- Built the booking API and the conflict-checking logic for a web app where students reserve study rooms, using Python, Flask and SQLite.\n- Wrote the unit tests for the booking API with pytest; the API is covered by an automated test suite.\n- Used Git for version control on the team project.\n- Presented the project to the course instructor and classmates at the end of the semester.\n\nLibrary Database Design - class project (databases course)\n- Designed a relational schema for a small library in PostgreSQL.\n- Wrote SQL queries for common reports and documented the design decisions.\n\nSorting Algorithm Visualizer - class project (algorithms course)\n- Implemented several sorting algorithms and a browser page that animates them step by step, using JavaScript, HTML and CSS.\n\nSKILLS\nPython, JavaScript, SQL, Git, unit testing with pytest\n\nWORK EXPERIENCE\nNone yet (no paid employment).\n\nDRAFT: not final until you approve it.",
+      "claims": [
+        {
+          "claim": "Bachelor of Science in Computer Science from Example State University, 2026",
+          "evidenceIds": [
+            "edu-bs-cs"
+          ]
+        },
+        {
+          "claim": "Built the booking API and conflict-checking logic in the team capstone using Python, Flask and SQLite",
+          "evidenceIds": [
+            "proj-capstone-scheduler",
+            "skill-python"
+          ]
+        },
+        {
+          "claim": "Wrote unit tests for the booking API with pytest; the API is covered by an automated test suite",
+          "evidenceIds": [
+            "proj-capstone-scheduler",
+            "skill-unit-testing"
+          ]
+        },
+        {
+          "claim": "Used Git for version control on the capstone team project",
+          "evidenceIds": [
+            "proj-capstone-scheduler",
+            "skill-git"
+          ]
+        },
+        {
+          "claim": "Presented the capstone to the course instructor and classmates at the end of the semester",
+          "evidenceIds": [
+            "proj-capstone-scheduler"
+          ]
+        },
+        {
+          "claim": "Designed a relational schema for a small library in PostgreSQL, wrote SQL queries for common reports and documented the design decisions (class project)",
+          "evidenceIds": [
+            "proj-database-course",
+            "skill-sql"
+          ]
+        },
+        {
+          "claim": "Implemented several sorting algorithms and a browser page that animates them step by step using JavaScript, HTML and CSS (class project)",
+          "evidenceIds": [
+            "proj-algorithms-visualizer",
+            "skill-javascript"
+          ]
+        },
+        {
+          "claim": "Skills listed: Python, JavaScript, SQL, Git, unit testing with pytest",
+          "evidenceIds": [
+            "skill-python",
+            "skill-javascript",
+            "skill-sql",
+            "skill-git",
+            "skill-unit-testing"
+          ]
+        }
+      ],
+      "flaggedUnknowns": [
+        "Graduation status: your profile says end year 2026 but not whether you have graduated. Your old resume said 'expected 2026'. Please confirm the right wording.",
+        "Graduation month, GPA, honors: not in the profile, so left out.",
+        "Whether you did code review or pull requests in the capstone: not in the profile, so left out.",
+        "Team size and your teammates' roles: not in the profile, so left out.",
+        "Any Docker, cloud (such as AWS) or Django experience: not in the profile, so left out. Add it only if it is true.",
+        "Any internships, volunteering or personal projects beyond the three listed: not in the profile.",
+        "Number of users, test count or other numbers: none supplied, so none included.",
+        "Contact details (email, link): not in the profile. Add them yourself."
+      ]
+    },
+    "interviewQuestions": [
+      {
+        "question": "Explain the difference between a list and a hash map (dictionary), and when you would pick each.",
+        "why": "Interviewers check that you understand basic building blocks in plain words.",
+        "whatGoodLooksLike": "Use your own experience, such as the Python code in your capstone or the sorting work in your visualizer. Explain in your own words how each stores and looks up data, and say honestly if you are unsure of a detail."
+      },
+      {
+        "question": "Walk me through your Campus Study-Room Scheduler capstone. What did you personally build, and what would you change?",
+        "why": "A project walkthrough shows what you did yourself and how you think about design.",
+        "whatGoodLooksLike": "Say it was a team capstone. Describe the booking API and conflict-checking logic you built with Flask and SQLite, and how you tested them with pytest. Name one real thing you would improve. Do not claim outcomes the profile does not show."
+      },
+      {
+        "question": "Tell me about a bug or a hard problem you worked through on a project or in a team. How did you find the cause?",
+        "why": "Entry-level jobs involve a lot of debugging and working with others.",
+        "whatGoodLooksLike": "Pick a real story from your capstone or class projects. Use four parts: the situation, your responsibility, what you did, what happened. The profile has no bug story, so choose one you truly remember and do not invent it."
+      },
+      {
+        "question": "This role asks you to write automated tests and work with Git every day, and you have used both only in school. How do you feel about that?",
+        "why": "Interviewers want an honest, calm answer about the gap between school experience and daily job use.",
+        "whatGoodLooksLike": "Say what you have done: pytest unit tests for the booking API and Git on the capstone. Say you have not yet done these in a paid job, and what you are doing to keep learning. Do not claim experience with code review, Docker or AWS unless it is true."
+      },
+      {
+        "question": "What questions do you have for us about the team and the role?",
+        "why": "Your questions show what you care about, and entry-level roles expect curiosity.",
+        "whatGoodLooksLike": "Ask about things you actually want to know, such as how new hires learn the Python codebase, how code review works, or how the team decides when something is ready to ship. Keep them tied to the posting's own words."
+      }
+    ],
+    "sevenDayPlan": [
+      {
+        "day": 1,
+        "actions": [
+          "Read the posting twice and underline each requirement. Next to each, write which of your projects shows it. Finished looks like a one-page list you made yourself.",
+          "Confirm the unknowns above (graduation wording, code review, any other experience) and write your answers down."
+        ]
+      },
+      {
+        "day": 2,
+        "actions": [
+          "Reread the resume draft line by line. For each bullet, check that you could explain it in an interview, and fix any wording that does not match what you did.",
+          "Decide how to word your graduation date and add your own contact details."
+        ]
+      },
+      {
+        "day": 3,
+        "actions": [
+          "Spend about two hours on Docker basics using free official documentation. Try to run one simple container on your own computer. Finished looks like a short note on what a container is, in your own words. This is a learning step only; do not add Docker to your resume unless you have really used it."
+        ]
+      },
+      {
+        "day": 4,
+        "actions": [
+          "Open your capstone code and review your unit tests. Be ready to explain what each test checks and why.",
+          "Optional: add a short README to a project you own, and remove any private data before making anything public."
+        ]
+      },
+      {
+        "day": 5,
+        "actions": [
+          "Practice the five interview questions out loud or in writing, using the four-part story structure. Then compare each answer to your profile and cross out anything you did not actually do."
+        ]
+      },
+      {
+        "day": 6,
+        "actions": [
+          "Read two or three other entry-level postings (software or QA) yourself and note which requirements you meet and which you do not. Do not use automated tools to scrape or mass-apply.",
+          "Write two sentences on what you would like to learn next."
+        ]
+      },
+      {
+        "day": 7,
+        "actions": [
+          "Review day: read the final resume and any cover note out loud, and approve them yourself only when every line is true.",
+          "If you decide to apply to Northwind, submit through their careers page yourself with your own account. I cannot apply or contact anyone for you. Check with your SAFI Trainer if anything is unclear."
+        ]
+      }
+    ],
+    "safety": {
+      "injectionDetected": false,
+      "ignoredInstructions": []
+    },
+    "sourcesUsed": [
+      "resume-writing-and-ethical-applications",
+      "cs-job-families-and-skills",
+      "interview-preparation-and-provenance"
+    ]
+  },
+  "finishedAt": "2026-11-03T09:29:31.212Z",
+  "durationMs": 32818
+}

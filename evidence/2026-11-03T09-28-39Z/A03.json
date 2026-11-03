@@ -1,0 +1,9 @@
+{
+  "id": "A03",
+  "title": "Reject missing/mismatched parent digest, cycle, changed same-version JSON (3 named negative tests)",
+  "status": "PASS",
+  "evidence": [
+    "evidence/2026-11-03T09-28-39Z/A03-test-run.json"
+  ],
+  "notes": "13 A03 tests passed, covering the three named cases: missing/mismatched parent digest, cycle, and changed same-version JSON (each asserts the specific error code)."
+}

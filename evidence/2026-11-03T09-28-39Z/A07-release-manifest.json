@@ -1,0 +1,23 @@
+{
+  "templateRef": {
+    "id": "safi.cs-graduate-jobseeker",
+    "version": "1.0.1",
+    "sha256": "11ef7bd588ae50c7c1a4ad9e561dced0c5163b69f5033efa643d2437ba4be8bc"
+  },
+  "parent": {
+    "id": "safi.cs-graduate-jobseeker",
+    "version": "1.0.0",
+    "sha256": "9d57ce0645bd6c0eec597ec4d7c6e9ff176bb831957f5ac09cf4ac3c1751f258"
+  },
+  "effectiveSha256": "24d6a927179a4c077f0339064c4bddb947bf81ab6b42dcdd0f035088442199a2",
+  "approval": {
+    "trainer": "Acceptance Harness (automated stand-in for the Trainer)",
+    "at": "2026-11-03T09:33:12.716Z"
+  },
+  "qualification": {
+    "allPass": true,
+    "at": "2026-11-03T09:33:12.548Z",
+    "tests": 21,
+    "fileSha256": "39e6ec7815fc7453f980b01c0a80e40200bf81c29b6e69a5f29c9e62e3b79fa3"
+  }
+}

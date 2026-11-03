@@ -1,0 +1,139 @@
+{
+  "command": "node --test --test-reporter=tap --test-name-pattern=A04 tests/compiler.test.mjs tests/instance.test.mjs",
+  "exitCode": 0,
+  "tests": [
+    {
+      "name": "A04: an unknown \"removeConstraints\" operation is rejected (deleting an inherited rule is impossible)",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: a child that carries its own tests list (could drop inherited tests) is rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: a forged effective definition that drops a parent test fails the superset invariant",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: a forged effective definition that drops or weakens a parent constraint fails the invariant",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: a forged effective definition that gains a tool fails (no privilege elevation)",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: re-defining an inherited constraint id (silent weakening) is a collision",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: an unapproved tool requested by a template fails compile",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: a forbidden tool (send_email) requested by a template fails compile",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: a missing required field is rejected by Ajv with a plain message",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: an unknown field is rejected (sealed schema)",
+      "status": "PASS"
+    },
+    {
+      "name": "A04: a wrong type or value is rejected",
+      "status": "PASS"
+    }
+  ],
+  "groups": {
+    "deleting or weakening an inherited rule": [
+      {
+        "name": "A04: an unknown \"removeConstraints\" operation is rejected (deleting an inherited rule is impossible)",
+        "status": "PASS"
+      },
+      {
+        "name": "A04: a forged effective definition that drops or weakens a parent constraint fails the invariant",
+        "status": "PASS"
+      },
+      {
+        "name": "A04: re-defining an inherited constraint id (silent weakening) is a collision",
+        "status": "PASS"
+      }
+    ],
+    "deleting an inherited test": [
+      {
+        "name": "A04: a child that carries its own tests list (could drop inherited tests) is rejected",
+        "status": "PASS"
+      },
+      {
+        "name": "A04: a forged effective definition that drops a parent test fails the superset invariant",
+        "status": "PASS"
+      }
+    ],
+    "invalid parameter": [
+      {
+        "name": "A04: a missing required field is rejected by Ajv with a plain message",
+        "status": "PASS"
+      },
+      {
+        "name": "A04: an unknown field is rejected (sealed schema)",
+        "status": "PASS"
+      },
+      {
+        "name": "A04: a wrong type or value is rejected",
+        "status": "PASS"
+      }
+    ],
+    "unapproved or forbidden tool": [
+      {
+        "name": "A04: a forged effective definition that gains a tool fails (no privilege elevation)",
+        "status": "PASS"
+      },
+      {
+        "name": "A04: an unapproved tool requested by a template fails compile",
+        "status": "PASS"
+      },
+      {
+        "name": "A04: a forbidden tool (send_email) requested by a template fails compile",
+        "status": "PASS"
+      }
+    ]
+  },
+  "httpDenials": {
+    "candidateDraft": {
+      "status": 403,
+      "error": {
+        "code": "TRAINER_ONLY",
+        "message": "Only a SAFI Trainer can do this.",
+        "hint": "Sign in as a SAFI Trainer."
+      }
+    },
+    "candidateDeploy": {
+      "status": 403,
+      "error": {
+        "code": "TRAINER_ONLY",
+        "message": "Only a SAFI Trainer can do this.",
+        "hint": "Sign in as a SAFI Trainer."
+      }
+    },
+    "candidateApprove": {
+      "status": 403,
+      "error": {
+        "code": "TRAINER_ONLY",
+        "message": "Only a SAFI Trainer can do this.",
+        "hint": "Sign in as a SAFI Trainer."
+      }
+    },
+    "invalidConfig": {
+      "status": 422,
+      "error": {
+        "code": "CONFIG_INVALID",
+        "message": "The agent settings are not valid: the object: missing required \"candidateName\"; the object: missing required \"consentToHostedModel\"; the object: missing required \"contactPreferences\"; the object: missing required \"education\"; the object: missing required \"locationPreference\"; the object: missing required \"paidEmployment\"; the object: missing required \"preferredRoles\"; the object: missing required \"projects\"; the object: missing required \"skills\". Fix these fields and try again.",
+        "hint": "Check the highlighted fields in the profile form and try again."
+      }
+    }
+  },
+  "httpProblem": null
+}

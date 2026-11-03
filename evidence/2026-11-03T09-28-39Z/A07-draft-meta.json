@@ -1,0 +1,12 @@
+{
+  "draftRef": "safi.cs-graduate-jobseeker@1.0.1",
+  "status": "DRAFT",
+  "parentRef": "safi.cs-graduate-jobseeker@1.0.0",
+  "lesson": "A capstone or class project is not paid employment; never list it as paid work or count it as years of experience",
+  "rationale": "This adds one constraint, mapped to the capstone-not-employment policy, that keeps academic projects distinct from paid work. A behavioral test checks that the resume draft does not credit years of paid or professional experience, and a structural test confirms the constraint is present.",
+  "proposal": {
+    "model": "claude-sonnet-5-5",
+    "requestId": "req_011Cgfm3NP3HhdeL8GEwLTAy"
+  },
+  "createdAt": "2026-11-03T09:30:05.313Z"
+}

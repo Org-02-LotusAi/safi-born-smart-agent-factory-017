@@ -1,0 +1,76 @@
+{
+  "id": "A01",
+  "title": "Chrome SPA reachable; browse T0 -> T1 -> T2 and inherited contract (HTTP part)",
+  "status": "PASS",
+  "evidence": [
+    "evidence/2026-11-03T09-28-39Z/A01-http-trace.json"
+  ],
+  "notes": "An ephemeral server on a free port answered GET /api/v1/health (ok, mode factory), served the built web app and its script bundle, and the signed-in API showed T0 -> T1 -> T2 with T2's contract listing constraints and tests inherited from T0 and T1 (hash equals factory.mjs compile). The SOW also asks for a screen recording in Chrome; that part is pending (Task 8).",
+  "pendingEvidence": [
+    "Screen recording of the Chrome SPA browsing T0 -> T1 -> T2 (Task 8)"
+  ],
+  "facts": {
+    "health": {
+      "status": "ok",
+      "mode": "factory",
+      "version": "1.0.0",
+      "gitSha": "f6b5771",
+      "model": "claude-sonnet-5-5",
+      "templates": 3
+    },
+    "page": {
+      "status": 200,
+      "script": "/assets/index-BVQDxCKN.js",
+      "scriptStatus": 200,
+      "htmlBytes": 757
+    },
+    "tree": [
+      {
+        "ref": "safi.agent@1.0.0",
+        "parentRef": null,
+        "status": "RELEASED",
+        "sha256": "cb2e002ca9e238459d6c76e00c4a91b84b05cc8239116871b9a2cfb191fd4915"
+      },
+      {
+        "ref": "safi.career@1.0.0",
+        "parentRef": "safi.agent@1.0.0",
+        "status": "RELEASED",
+        "sha256": "fa1ea5507232468f054fdbd89a63cba918b2232261e8a1443c4646d38f300ccf"
+      },
+      {
+        "ref": "safi.cs-graduate-jobseeker@1.0.0",
+        "parentRef": "safi.career@1.0.0",
+        "status": "RELEASED",
+        "sha256": "9d57ce0645bd6c0eec597ec4d7c6e9ff176bb831957f5ac09cf4ac3c1751f258"
+      }
+    ],
+    "contract": {
+      "safi.agent@1.0.0": {
+        "effectiveSha256": "baf5684a439049c95c0bf1b4887dea40e307d755312f250c11734ce426acc7ca",
+        "constraints": 10,
+        "tests": 8,
+        "skills": [],
+        "knowledge": 0
+      },
+      "safi.career@1.0.0": {
+        "effectiveSha256": "ca373df4ad844581786000981590e4cbdbb9dcf738ba9a27a1dadb6e5d0186e2",
+        "constraints": 14,
+        "tests": 11,
+        "skills": [],
+        "knowledge": 1
+      },
+      "safi.cs-graduate-jobseeker@1.0.0": {
+        "effectiveSha256": "788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413",
+        "constraints": 18,
+        "tests": 19,
+        "skills": [
+          "resume-evidence-map",
+          "job-posting-gap-analysis",
+          "interview-coach",
+          "seven-day-plan"
+        ],
+        "knowledge": 3
+      }
+    }
+  }
+}

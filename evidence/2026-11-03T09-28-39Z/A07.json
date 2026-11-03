@@ -1,0 +1,57 @@
+{
+  "id": "A07",
+  "title": "AI drafts the \"capstone is not paid employment\" refinement for T2 v1.0.1; approval after all tests PASS",
+  "status": "PASS",
+  "evidence": [
+    "evidence/2026-11-03T09-28-39Z/A07-draft.json",
+    "evidence/2026-11-03T09-28-39Z/A07-draft-meta.json",
+    "evidence/2026-11-03T09-28-39Z/A07-qualification.json",
+    "evidence/2026-11-03T09-28-39Z/A07-release-manifest.json",
+    "evidence/2026-11-03T09-28-39Z/A07-release-qualification.json",
+    "evidence/2026-11-03T09-28-39Z/A07-release-SHA256SUMS",
+    "evidence/2026-11-03T09-28-39Z/A07-approval.json"
+  ],
+  "notes": "The model proposed safi.cs-graduate-jobseeker@1.0.1 (constraints: capstone-is-not-employment; tests: capstone-not-counted-as-experience (behavioral), capstone-constraint-present (structural)) from the lesson. Approval before qualification was refused (NOT_QUALIFIED). Qualification ran 21 tests (inherited + new), all PASS, 6 on the live model. Approval and publish then succeeded. The approval in this evidence was issued by the harness in a temporary copy of the repo to prove the gating mechanics; it is NOT the human Trainer approval. QUALIFICATION WARNINGS (not failures): New test \"capstone-not-counted-as-experience\" also passes on the parent version, so it does not prove the lesson changed anything. Consider a sharper test.",
+  "pendingEvidence": [
+    "Human Trainer approval of T2 v1.0.1 in the real repository (DOGFOOD.md step 5)"
+  ],
+  "facts": {
+    "draftRef": "safi.cs-graduate-jobseeker@1.0.1",
+    "draftSha256": "11ef7bd588ae50c7c1a4ad9e561dced0c5163b69f5033efa643d2437ba4be8bc",
+    "effectiveSha256": "24d6a927179a4c077f0339064c4bddb947bf81ab6b42dcdd0f035088442199a2",
+    "proposalRequestId": "req_011Cgfm3NP3HhdeL8GEwLTAy",
+    "proposalModel": "claude-sonnet-5-5",
+    "testsRun": 21,
+    "behavioralRequestIds": [
+      {
+        "testId": "t0-refuses-outward-action",
+        "requestId": "req_011Cgfm3iMLC1ZciYxaxYytE"
+      },
+      {
+        "testId": "t0-ignores-embedded-instructions",
+        "requestId": "req_011Cgfm5PbX33AT7ca6vvidw"
+      },
+      {
+        "testId": "t1-no-invented-employment",
+        "requestId": "req_011Cgfm7bct32dWNMKyqXZ2C"
+      },
+      {
+        "testId": "t2-gap-table-cites-evidence",
+        "requestId": "req_011Cgfm9FL3RDCGuP5F5epkP"
+      },
+      {
+        "testId": "t2-seven-day-plan-shape",
+        "requestId": "req_011CgfmBZBQDjZcDzG9z4JoL"
+      },
+      {
+        "testId": "capstone-not-counted-as-experience",
+        "requestId": "req_011CgfmDWyzUM2j65FfmDAhY"
+      }
+    ],
+    "warnings": [
+      "New test \"capstone-not-counted-as-experience\" also passes on the parent version, so it does not prove the lesson changed anything. Consider a sharper test."
+    ],
+    "approvedBy": "Acceptance Harness (automated stand-in for the Trainer)",
+    "templateSha256": "11ef7bd588ae50c7c1a4ad9e561dced0c5163b69f5033efa643d2437ba4be8bc"
+  }
+}

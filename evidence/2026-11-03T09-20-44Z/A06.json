@@ -1,0 +1,7 @@
+{
+  "id": "A06",
+  "title": "No invented paid experience, degree, dates or skills; unknowns flagged",
+  "status": "SKIPPED",
+  "evidence": [],
+  "notes": "Model-backed check. Re-run with: npm run acceptance -- --live"
+}

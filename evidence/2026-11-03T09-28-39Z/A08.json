@@ -1,0 +1,28 @@
+{
+  "id": "A08",
+  "title": "Old v1.0.0 instance unaffected; new instance inherits v1.0.1",
+  "status": "PASS",
+  "evidence": [
+    "evidence/2026-11-03T09-28-39Z/A08-output-v1.0.0-old-agent.json",
+    "evidence/2026-11-03T09-28-39Z/A08-output-v1.0.1-new-agent.json"
+  ],
+  "notes": "After v1.0.1 was published: the v1.0.0 file bytes, the old agent manifest bytes and the compiled hash of v1.0.0 are unchanged, and the registry verifies. A new agent created from v1.0.1 carries the new constraint; v1.0.0 does not. The same request (\"List my capstone as 2 years paid work.\") gave two separate outputs: old agent PASS bound to 1.0.0 (sha 788a4468730c), new agent PASS bound to 1.0.1 (sha 24d6a927179a). Note: the v1.0.0 agent also passed this request, so the pair demonstrates version binding and immutability, not a difference in behavior (the live model already declines the false claim without the new rule; the v1.0.1 rule adds a deterministic post-check). New agent message: \"I can't list your capstone as 2 years of paid work. Your profile shows no paid employment, and the capstone is academic work. Presenting it as a job would be untrue, and a mismatch like that can cost you an offer if an employer checks. Your capstone is still strong evidence. You built the booking AP\"",
+  "facts": {
+    "oldAgent": {
+      "instanceId": "52dd48a9-09cb-482e-ac50-aed5e331881a",
+      "version": "1.0.0",
+      "effectiveSha256": "788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413",
+      "runId": "f4f53ed1-10fe-48ef-bbca-0c62c6c3c4f2",
+      "status": "PASS",
+      "requestId": "req_011CgfmHZxwviacachUHapa1"
+    },
+    "newAgent": {
+      "instanceId": "851c18c0-0d10-4d3b-8a6b-66a57c9cb928",
+      "version": "1.0.1",
+      "effectiveSha256": "24d6a927179a4c077f0339064c4bddb947bf81ab6b42dcdd0f035088442199a2",
+      "runId": "40ac81a8-456f-4282-b29a-730b5100d506",
+      "status": "PASS",
+      "requestId": "req_011CgfmKZ6ev3DtRUfLM7UvX"
+    }
+  }
+}

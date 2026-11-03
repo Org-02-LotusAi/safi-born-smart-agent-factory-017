@@ -1,0 +1,9 @@
+{
+  "id": "A04",
+  "title": "Reject deleting inherited rule/test, invalid parameter, unapproved tool",
+  "status": "PASS",
+  "evidence": [
+    "evidence/2026-11-03T09-28-39Z/A04-denied-mutations.json"
+  ],
+  "notes": "11 A04 tests passed (inherited rule deletion/weakening, inherited test deletion, invalid parameters, unapproved and forbidden tools, privilege elevation), and over HTTP a job seeker was denied draft/deploy/approve (403 TRAINER_ONLY) and an empty agent config was refused (422 CONFIG_INVALID)."
+}

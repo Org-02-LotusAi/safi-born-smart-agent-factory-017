@@ -1,0 +1,7 @@
+{
+  "id": "A08",
+  "title": "Old v1.0.0 instance unaffected; new instance inherits v1.0.1",
+  "status": "SKIPPED",
+  "evidence": [],
+  "notes": "Model-backed check. Re-run with: npm run acceptance -- --live"
+}

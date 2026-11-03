@@ -1,0 +1,7 @@
+{
+  "id": "A07",
+  "title": "AI drafts the \"capstone is not paid employment\" refinement for T2 v1.0.1; approval after all tests PASS",
+  "status": "SKIPPED",
+  "evidence": [],
+  "notes": "Model-backed check. Re-run with: npm run acceptance -- --live"
+}
