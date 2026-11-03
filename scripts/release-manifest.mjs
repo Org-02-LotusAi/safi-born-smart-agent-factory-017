@@ -45,8 +45,7 @@ export function collectFiles() {
 function git(args, trim = true) {
   try {
     const out = execFileSync('git', args, { cwd: REPO, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
-    return trim ? out.trim() : out.replace(/
-+$/, '');
+    return trim ? out.trim() : out.replace(/\n+$/, '');
   } catch {
     return null;
   }
