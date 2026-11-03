@@ -1,0 +1,13 @@
+{
+  "id": "A09",
+  "title": "Office runtime works and survives process restart; private data stays in customer account",
+  "status": "BLOCKED",
+  "evidence": [
+    "evidence/2026-11-03T14-26-14Z/A09-local-office-simulation.json"
+  ],
+  "notes": "BLOCKED: config/office.json does not exist because the SOW 016 Office has not been provisioned (see docs/AWS-REQUIREMENTS.md). No Office URL, logs or restart evidence from the customer account exist yet. Local simulation, NOT the customer Office: the real deployment bundle was built and extracted, run in SAFI_MODE=office with a separate data folder, stopped and started again. The agent and its private profile survived, the manifest is byte-identical, training routes answered 403 OFFICE_MODE, and the bundle contains no data folder and no .env file.",
+  "localSimulation": {
+    "status": "PASS",
+    "label": "local simulation, not the customer Office"
+  }
+}

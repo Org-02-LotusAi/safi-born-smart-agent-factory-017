@@ -1,0 +1,84 @@
+{
+  "server": "http://127.0.0.1:53840",
+  "facts": {
+    "health": {
+      "status": "ok",
+      "mode": "factory",
+      "version": "1.0.0",
+      "gitSha": "2969fda",
+      "model": "claude-sonnet-5-5",
+      "templates": 3
+    },
+    "page": {
+      "status": 200,
+      "script": "/assets/index-BQX62-Ol.js",
+      "scriptStatus": 200,
+      "htmlBytes": 757
+    },
+    "tree": [
+      {
+        "ref": "safi.agent@1.0.0",
+        "parentRef": null,
+        "status": "RELEASED",
+        "sha256": "cb2e002ca9e238459d6c76e00c4a91b84b05cc8239116871b9a2cfb191fd4915"
+      },
+      {
+        "ref": "safi.career@1.0.0",
+        "parentRef": "safi.agent@1.0.0",
+        "status": "RELEASED",
+        "sha256": "fa1ea5507232468f054fdbd89a63cba918b2232261e8a1443c4646d38f300ccf"
+      },
+      {
+        "ref": "safi.cs-graduate-jobseeker@1.0.0",
+        "parentRef": "safi.career@1.0.0",
+        "status": "RELEASED",
+        "sha256": "9d57ce0645bd6c0eec597ec4d7c6e9ff176bb831957f5ac09cf4ac3c1751f258"
+      }
+    ],
+    "contract": {
+      "safi.agent@1.0.0": {
+        "effectiveSha256": "baf5684a439049c95c0bf1b4887dea40e307d755312f250c11734ce426acc7ca",
+        "constraints": 10,
+        "tests": 8,
+        "skills": [],
+        "knowledge": 0
+      },
+      "safi.career@1.0.0": {
+        "effectiveSha256": "ca373df4ad844581786000981590e4cbdbb9dcf738ba9a27a1dadb6e5d0186e2",
+        "constraints": 14,
+        "tests": 11,
+        "skills": [],
+        "knowledge": 1
+      },
+      "safi.cs-graduate-jobseeker@1.0.0": {
+        "effectiveSha256": "788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413",
+        "constraints": 18,
+        "tests": 19,
+        "skills": [
+          "resume-evidence-map",
+          "job-posting-gap-analysis",
+          "interview-coach",
+          "seven-day-plan"
+        ],
+        "knowledge": 3
+      }
+    },
+    "recording": {
+      "path": "evidence/task-8/A01_template_tree.gif",
+      "sha256": "0187312f2e7321802978a564a132231ab31b3a3e10b21a7580ba001561421470",
+      "bytes": 1771129
+    }
+  },
+  "serverLogTail": [
+    "SAFI Factory is running at http://127.0.0.1:53840",
+    "[safi] qjhta35q GET /api/v1/health 200 69ms",
+    "[safi] dew8d4gs GET /api/v1/health 200 55ms",
+    "[safi] jlltvx7i GET / 200 11ms",
+    "[safi] 1ciwax6i GET /assets/index-BQX62-Ol.js 200 5ms",
+    "[safi] 5fjjk4ea POST /api/v1/session 201 31ms",
+    "[safi] 3prikh5r GET /api/v1/templates 200 125ms",
+    "[safi] 0gvjinev GET /api/v1/templates/safi.agent@1.0.0 200 38ms",
+    "[safi] 8w1dfsee GET /api/v1/templates/safi.career@1.0.0 200 75ms",
+    ""
+  ]
+}

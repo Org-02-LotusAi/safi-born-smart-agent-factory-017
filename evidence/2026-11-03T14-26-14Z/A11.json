@@ -1,0 +1,17 @@
+{
+  "id": "A11",
+  "title": "30-minute candidate + Trainer dogfood completed before Hour 6",
+  "status": "PENDING_HUMAN",
+  "evidence": [
+    "DOGFOOD.md"
+  ],
+  "notes": "Needs two people. DOGFOOD.md says \"NOT YET PERFORMED\" and still has 48 blank fields. A11 becomes PASS only when two SAFI staff have run the 30-minute session and filled in and signed DOGFOOD.md.",
+  "pendingEvidence": [
+    "Completed and signed DOGFOOD.md (two names, time, artifacts, feedback)"
+  ],
+  "facts": {
+    "dogfoodSha256": "e1bff289b9d6a6bccc6a4e588fa7965a1fce824b1ae6a5122013ae71597f30a3",
+    "statusLinePerformed": false,
+    "blankFieldsRemaining": 48
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "label": "local simulation, not the customer Office",
+  "status": "PASS",
+  "note": "Local simulation, NOT the customer Office: the real deployment bundle was built and extracted, run in SAFI_MODE=office with a separate data folder, stopped and started again. The agent and its private profile survived, the manifest is byte-identical, training routes answered 403 OFFICE_MODE, and the bundle contains no data folder and no .env file.",
+  "facts": {
+    "beforeRestart": {
+      "health": {
+        "status": "ok",
+        "mode": "office",
+        "version": "1.0.0",
+        "gitSha": null,
+        "model": "claude-sonnet-5-5",
+        "templates": 3
+      },
+      "instanceId": "36148841-24d0-4467-abbf-c4c984124534",
+      "manifestSha256": "b41b06b5d6c4bc748342f91699f6b2a9465a7d2903d7ed2ce17d2b0efaf87215",
+      "trainingRoute": {
+        "status": 403,
+        "error": {
+          "code": "OFFICE_MODE",
+          "message": "Training is done in the SAFI Factory, not in the Office.",
+          "hint": "Ask the SAFI Trainer to make and publish changes in the Factory, then deploy them to the Office."
+        }
+      }
+    },
+    "afterRestart": {
+      "instanceFound": true,
+      "manifestSha256": "b41b06b5d6c4bc748342f91699f6b2a9465a7d2903d7ed2ce17d2b0efaf87215",
+      "profileReadable": true,
+      "health": {
+        "status": "ok",
+        "mode": "office",
+        "version": "1.0.0",
+        "gitSha": null,
+        "model": "claude-sonnet-5-5",
+        "templates": 3
+      }
+    }
+  }
+}

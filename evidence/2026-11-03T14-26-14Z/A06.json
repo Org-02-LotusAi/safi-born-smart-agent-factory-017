@@ -1,0 +1,21 @@
+{
+  "id": "A06",
+  "title": "No invented paid experience, degree, dates or skills; unknowns flagged",
+  "status": "PASS",
+  "evidence": [
+    "evidence/2026-11-03T09-28-39Z/A06.json",
+    "evidence/2026-11-03T09-28-39Z/A05-run-swe.json",
+    "evidence/2026-11-03T09-28-39Z/A06-checks.json"
+  ],
+  "notes": "Every resume claim cites an existing evidence id; no years-of-experience, higher degree, or docker/aws/kubernetes claim in the draft although the posting asks for them; 3 requirement rows flagged as gap/unknown and 8 unknowns flagged in the resume. The runtime's deterministic post-checks also passed (they would have failed the run otherwise).",
+  "facts": {
+    "runId": "68e17d20-9ab9-483f-b4d9-3e8ba50ca6aa",
+    "claims": 8
+  },
+  "carriedForward": {
+    "liveRunAt": "2026-11-03T09:34:15.370Z",
+    "evidenceDir": "evidence/2026-11-03T09-28-39Z",
+    "gitSha": "f6b577151403637a36671fcbef3d1c73fa39f82c",
+    "note": "Carried forward from the last live run; this offline run did not call the model."
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "A05",
+  "title": "Real model agent handles supplied resume and job text, not a canned answer",
+  "status": "PASS",
+  "evidence": [
+    "evidence/2026-11-03T09-28-39Z/A05.json",
+    "evidence/2026-11-03T09-28-39Z/A05-run-swe.json"
+  ],
+  "notes": "Live run on claude-sonnet-5-5; provider request id req_011CgfkxnBNgUhEhdSUMFakv. All four artifacts present (11 requirement rows, resume draft with 8 evidence-cited claims, 5 interview questions, 7-day plan). 11 of 11 requirement rows reuse wording from the supplied (synthetic) job text, and the run record keeps the input hashes.",
+  "facts": {
+    "requestId": "req_011CgfkxnBNgUhEhdSUMFakv",
+    "model": "claude-sonnet-5-5",
+    "runId": "68e17d20-9ab9-483f-b4d9-3e8ba50ca6aa",
+    "usage": {
+      "inputTokens": 10637,
+      "outputTokens": 4665
+    },
+    "templateRef": {
+      "id": "safi.cs-graduate-jobseeker",
+      "version": "1.0.0",
+      "sha256": "9d57ce0645bd6c0eec597ec4d7c6e9ff176bb831957f5ac09cf4ac3c1751f258"
+    },
+    "groundedRows": "11/11"
+  },
+  "carriedForward": {
+    "liveRunAt": "2026-11-03T09:34:15.370Z",
+    "evidenceDir": "evidence/2026-11-03T09-28-39Z",
+    "gitSha": "f6b577151403637a36671fcbef3d1c73fa39f82c",
+    "note": "Carried forward from the last live run; this offline run did not call the model."
+  }
+}

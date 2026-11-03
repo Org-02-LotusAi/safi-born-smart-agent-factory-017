@@ -1,0 +1,36 @@
+{
+  "id": "A02",
+  "title": "Canonical compiler produces a stable SHA from identical exact inputs",
+  "status": "PASS",
+  "evidence": [],
+  "notes": "Two in-process compiles and two separate node processes (one run from another working directory) gave the same effectiveSha256 for T0, T1 and T2. T2 = 788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413. All 10 registry entries re-verified.",
+  "facts": {
+    "rows": [
+      {
+        "ref": "safi.agent@1.0.0",
+        "inProcessA": "baf5684a439049c95c0bf1b4887dea40e307d755312f250c11734ce426acc7ca",
+        "inProcessB": "baf5684a439049c95c0bf1b4887dea40e307d755312f250c11734ce426acc7ca",
+        "processA": "baf5684a439049c95c0bf1b4887dea40e307d755312f250c11734ce426acc7ca",
+        "processB_otherCwd": "baf5684a439049c95c0bf1b4887dea40e307d755312f250c11734ce426acc7ca",
+        "identical": true
+      },
+      {
+        "ref": "safi.career@1.0.0",
+        "inProcessA": "ca373df4ad844581786000981590e4cbdbb9dcf738ba9a27a1dadb6e5d0186e2",
+        "inProcessB": "ca373df4ad844581786000981590e4cbdbb9dcf738ba9a27a1dadb6e5d0186e2",
+        "processA": "ca373df4ad844581786000981590e4cbdbb9dcf738ba9a27a1dadb6e5d0186e2",
+        "processB_otherCwd": "ca373df4ad844581786000981590e4cbdbb9dcf738ba9a27a1dadb6e5d0186e2",
+        "identical": true
+      },
+      {
+        "ref": "safi.cs-graduate-jobseeker@1.0.0",
+        "inProcessA": "788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413",
+        "inProcessB": "788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413",
+        "processA": "788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413",
+        "processB_otherCwd": "788a4468730c0e4731b36b1ea8b686c9aac74f12afdffb74948953af2c9ed413",
+        "identical": true
+      }
+    ],
+    "registryVerified": 10
+  }
+}
