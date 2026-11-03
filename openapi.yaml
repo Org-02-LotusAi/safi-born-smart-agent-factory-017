@@ -39,18 +39,18 @@ paths:
     post:
       tags: [session]
       summary: Sign in with a role passcode
-      description: Role candidate (job seeker) or trainer. `name` is a display label; for candidates it also decides which agents are theirs.
+      description: Role candidate (job seeker) or trainer. `name` is required (1 to 80 characters after trimming) for both roles; for candidates it decides which agents are theirs, for trainers it is recorded on approvals.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [role, passcode]
+              required: [role, passcode, name]
               properties:
                 role: { type: string, enum: [candidate, trainer] }
                 passcode: { type: string }
-                name: { type: string, maxLength: 80 }
+                name: { type: string, minLength: 1, maxLength: 80 }
       responses:
         '201':
           description: Signed in; session cookie set.
@@ -62,6 +62,7 @@ paths:
                   role: { type: string }
                   name: { type: string }
                   mode: { type: string, enum: [factory, office] }
+        '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/Error' }
     delete:
@@ -391,7 +392,10 @@ paths:
     post:
       tags: [authoring]
       summary: Deploy the published templates to the customer Office (needs deploy-office.mjs)
-      description: 503 DEPLOY_NOT_INSTALLED until the Office deployment tool is present.
+      description: |
+        Modes `dry-run` and `status` answer synchronously with 200. Modes `deploy` and `restart` can take minutes, so they start a
+        job (202 with a jobId, poll GET /jobs/{jobId}; job kind `deploy`, result = whatever the tool reports). Only one deploy or
+        restart can run at a time: a second one is refused with 409 DEPLOY_RUNNING. 503 DEPLOY_NOT_INSTALLED until the Office deployment tool is present.
       requestBody:
         required: true
         content:
@@ -403,11 +407,24 @@ paths:
                 mode: { type: string, enum: [dry-run, deploy, status, restart] }
       responses:
         '200':
-          description: Whatever the deployment tool reports.
+          description: dry-run or status only. Whatever the deployment tool reports.
           content:
             application/json:
               schema: { type: object }
+        '202':
+          description: deploy or restart started as a job.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId: { type: string, format: uuid }
+                  status: { type: string }
+                  existing: { type: boolean }
+        '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /deploy/status:
     get:
@@ -568,11 +585,11 @@ components:
       type: object
       properties:
         jobId: { type: string, format: uuid }
-        kind: { type: string, enum: [run, train, qualify] }
+        kind: { type: string, enum: [run, train, qualify, deploy] }
         status: { type: string, enum: [queued, running, done, failed] }
         progressText: { type: string }
         createdAt: { type: string }
         startedAt: { type: string }
         finishedAt: { type: string }
-        result: { type: object, description: 'Present when done: run record (kind run), train result (kind train), qualification record (kind qualify).' }
+        result: { type: object, description: 'Present when done: run record (kind run), train result (kind train), qualification record (kind qualify), deployment tool report (kind deploy).' }
         error: { $ref: '#/components/schemas/Error/properties/error' }

@@ -39,7 +39,7 @@ export function resolvePasscodes(env, dataDir, { quiet = false, log = console.lo
     if (!candidate) { candidate = randomBytes(6).toString('base64url'); generated.push('candidate'); }
     if (!trainer) { trainer = randomBytes(6).toString('base64url'); generated.push('trainer'); }
     mkdirSync(dataDir, { recursive: true });
-    writeFileSync(path.join(dataDir, 'passcodes.local.txt'), `candidate: ${candidate}\ntrainer: ${trainer}\n`, { mode: 0o600 });
+    writeFileSync(path.join(dataDir, 'passcodes.local.txt'), generated.map((g) => `${g}: ${g === 'candidate' ? candidate : trainer}\n`).join(''), { mode: 0o600 });
     if (!quiet) {
       log(`No ${generated.join(' / ')} passcode was set in the environment, so random ones were made (shown once):`);
       if (generated.includes('candidate')) log(`  Job seeker passcode:   ${candidate}`);
@@ -65,6 +65,7 @@ export function readToken(secret, token) {
   try {
     const s = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
     if (!['candidate', 'trainer'].includes(s.role) || typeof s.exp !== 'number' || s.exp < Date.now()) return null;
+    if (cleanName(s.name) === null) return null; // a session without a real name is never valid
     return s;
   } catch {
     return null;
@@ -82,8 +83,19 @@ export function parseCookies(header = '') {
   return out;
 }
 
-/** Owner label used by the server-side index: role plus the name typed at sign-in. */
-export const ownerLabel = (role, name) => `${role}:${String(name || role).trim().toLowerCase().slice(0, 80)}`;
+/** A sign-in name: trimmed, whitespace collapsed, 1-80 characters. Returns null when it is not acceptable. */
+export function cleanName(name) {
+  if (typeof name !== 'string') return null;
+  const n = name.trim().replace(/\s+/g, ' ');
+  return n.length >= 1 && n.length <= 80 ? n : null;
+}
+
+/** Owner label used by the server-side index: role plus the name typed at sign-in. Never falls back to a shared default. */
+export function ownerLabel(role, name) {
+  const n = cleanName(name);
+  if (n === null) throw new Error('ownerLabel needs a real name');
+  return `${role}:${n.toLowerCase()}`;
+}
 
 /** data/instance-owners.json: { [instanceId]: ownerLabel }. Kept outside the immutable manifest on purpose. */
 export class OwnerIndex {

@@ -125,9 +125,9 @@ test('health is public and reports mode, version, model and template count; /me 
 }));
 
 test('sessions: wrong passcode, CSRF header, signed cookie flags, tampered cookie, sign out', () => withServer(async ({ api, login }) => {
-  assertErrorShape(await api('POST', '/session', { body: { role: 'trainer', passcode: 'nope' } }), 401, 'WRONG_PASSCODE');
-  assertErrorShape(await api('POST', '/session', { body: { role: 'wizard', passcode: 'x' } }), 400, 'BAD_REQUEST');
-  assertErrorShape(await api('POST', '/session', { body: { role: 'trainer', passcode: PASS.trainer }, headers: { 'X-SAFI-Request': '' } }), 403, 'CSRF_BLOCKED');
+  assertErrorShape(await api('POST', '/session', { body: { role: 'trainer', passcode: 'nope', name: 'Pat' } }), 401, 'WRONG_PASSCODE');
+  assertErrorShape(await api('POST', '/session', { body: { role: 'wizard', passcode: 'x', name: 'Pat' } }), 400, 'BAD_REQUEST');
+  assertErrorShape(await api('POST', '/session', { body: { role: 'trainer', passcode: PASS.trainer, name: 'Pat' }, headers: { 'X-SAFI-Request': '' } }), 403, 'CSRF_BLOCKED');
   const res = await api('POST', '/session', { body: { role: 'candidate', passcode: PASS.candidate, name: 'Alex' } });
   const cookieLine = res.headers.get('set-cookie');
   assert.match(cookieLine, /HttpOnly/);
@@ -152,8 +152,35 @@ test('roles: a job seeker is refused every authoring route; a trainer is not', (
   assert.equal((await api('GET', '/drafts', { cookie: trainer })).status, 200);
 }));
 
+test('sign-in requires a real name for both roles; two candidates never share an owner bucket', () => withServer(async ({ api, login }) => {
+  for (const role of ['candidate', 'trainer']) {
+    for (const name of [undefined, '', '   ', 42, 'x'.repeat(81)]) {
+      const r = await api('POST', '/session', { body: { role, passcode: PASS[role], name } });
+      assertErrorShape(r, 400, 'BAD_REQUEST');
+      assert.equal(r.headers.get('set-cookie'), null);
+    }
+  }
+  assert.match((await api('POST', '/session', { body: { role: 'candidate', passcode: PASS.candidate } })).json.error.message, /type your name/i);
+  const alex = await login('candidate', '  Alex  ');
+  const sam = await login('candidate', 'Sam');
+  assert.equal((await api('GET', '/me', { cookie: alex })).json.name, 'Alex');
+  const id = (await api('POST', '/instances', { cookie: alex, body: { templateRef: T2, config: profile() } })).json.instanceId;
+  const run = (await api('POST', `/instances/${id}/runs`, { cookie: alex, body: { job: { fixture: 'job-swe-entry.txt' } } })).json.jobId;
+  await poll(api, alex, run);
+  assert.equal((await api('GET', '/instances', { cookie: sam })).json.instances.length, 0);
+  assertErrorShape(await api('GET', `/instances/${id}`, { cookie: sam }), 404, 'INSTANCE_NOT_FOUND');
+  assertErrorShape(await api('GET', `/instances/${id}/runs`, { cookie: sam }), 404, 'INSTANCE_NOT_FOUND');
+  assertErrorShape(await api('GET', `/jobs/${run}`, { cookie: sam }), 404, 'JOB_NOT_FOUND');
+}));
+
+test('a validly signed cookie that carries no name is rejected', () => withServer(async ({ api }) => {
+  const { makeToken } = await import('../server/auth.mjs');
+  const forged = `safi_session=${makeToken('test-secret', { role: 'candidate', name: '', exp: Date.now() + 60000 })}`;
+  assert.equal((await api('GET', '/me', { cookie: forged })).json.authenticated, false);
+}));
+
 test('unknown API routes and bad bodies give the standard error shape', () => withServer(async ({ api, login, base }) => {
-  const cookie = await login('candidate');
+  const cookie = await login('candidate', 'Alex');
   assertErrorShape(await api('GET', '/nope', { cookie }), 404, 'NOT_FOUND');
   assertErrorShape(await api('POST', '/compile', { cookie, raw: '{not json' }), 400, 'BAD_JSON');
   assertErrorShape(await api('POST', '/compile', { cookie, body: { templateRef: 'x'.repeat(300000) } }), 413, 'TOO_LARGE');
@@ -164,7 +191,7 @@ test('unknown API routes and bad bodies give the standard error shape', () => wi
 
 // ---------- templates ----------
 test('templates: tree with parent links, template view with origin per inherited item, compile', () => withServer(async ({ api, login }) => {
-  const cookie = await login('candidate');
+  const cookie = await login('candidate', 'Alex');
   const tree = (await api('GET', '/templates', { cookie })).json.templates;
   assert.deepEqual(tree.map((t) => [t.ref, t.parentRef]), [
     ['safi.agent@1.0.0', null], ['safi.career@1.0.0', 'safi.agent@1.0.0'], ['safi.cs-graduate-jobseeker@1.0.0', 'safi.career@1.0.0']
@@ -356,6 +383,48 @@ test('deploy: with a module installed, modes are validated and results returned'
   assert.deepEqual((await api('GET', '/deploy/status', { cookie: trainer })).json, { ok: true, mode: 'status' });
 }, { deployModule: { deploy: async ({ mode }) => ({ ok: true, mode }) } }));
 
+const deployCalls = [];
+let releaseDeploy;
+const deployGate = new Promise((r) => { releaseDeploy = r; });
+const stubDeployModule = { deploy: async ({ mode }) => { deployCalls.push(mode); if (mode === 'deploy') await deployGate; return { ok: true, mode }; } };
+
+test('deploy and restart are keyed 202 jobs; a second one is refused with 409; dry-run and status stay synchronous', () => withServer(async ({ api, login }) => {
+  const trainer = await login('trainer', 'Pat');
+  const cand = await login('candidate', 'Alex');
+  assert.deepEqual((await api('POST', '/deploy', { cookie: trainer, body: { mode: 'dry-run' } })).json, { ok: true, mode: 'dry-run' });
+  const first = await api('POST', '/deploy', { cookie: trainer, body: { mode: 'deploy' } });
+  assert.equal(first.status, 202, first.text);
+  assert.match(first.json.jobId, /^[0-9a-f-]{36}$/);
+  const running = await api('GET', `/jobs/${first.json.jobId}`, { cookie: trainer });
+  assert.equal(running.json.kind, 'deploy');
+  assert.ok(['queued', 'running'].includes(running.json.status));
+  assertErrorShape(await api('GET', `/jobs/${first.json.jobId}`, { cookie: cand }), 404, 'JOB_NOT_FOUND');
+  const second = await api('POST', '/deploy', { cookie: trainer, body: { mode: 'deploy' } });
+  assertErrorShape(second, 409, 'DEPLOY_RUNNING');
+  assert.match(second.json.error.message, /already in progress/);
+  assertErrorShape(await api('POST', '/deploy', { cookie: trainer, body: { mode: 'restart' } }), 409, 'DEPLOY_RUNNING');
+  // status and dry-run are still answered while a deploy runs
+  assert.deepEqual((await api('GET', '/deploy/status', { cookie: trainer })).json, { ok: true, mode: 'status' });
+  releaseDeploy();
+  const done = await poll(api, trainer, first.json.jobId);
+  assert.equal(done.status, 'done');
+  assert.deepEqual(done.result, { ok: true, mode: 'deploy' });
+  // finished: a restart can start now
+  const again = await api('POST', '/deploy', { cookie: trainer, body: { mode: 'restart' } });
+  assert.equal(again.status, 202, again.text);
+  assert.equal((await poll(api, trainer, again.json.jobId)).result.mode, 'restart');
+  assert.deepEqual(deployCalls, ['dry-run', 'deploy', 'status', 'restart']);
+}, { deployModule: stubDeployModule }));
+
+test('a failing deploy is a failed job with a plain error', () => withServer(async ({ api, login }) => {
+  const trainer = await login('trainer', 'Pat');
+  const r = await api('POST', '/deploy', { cookie: trainer, body: { mode: 'deploy' } });
+  assert.equal(r.status, 202);
+  const job = await poll(api, trainer, r.json.jobId);
+  assert.equal(job.status, 'failed');
+  assert.deepEqual(Object.keys(job.error).sort(), ['code', 'hint', 'message']);
+}, { deployModule: { deploy: async () => { throw new Error('ssm exploded'); } } }));
+
 // ---------- static + generated passcodes ----------
 test('without a built client the root page says to run npm run build; a built client is served with SPA fallback', async () => {
   const dist = mkdtempSync(path.join(tmpdir(), 'safi-dist-'));
@@ -385,7 +454,7 @@ test('missing passcodes are generated, saved to data/passcodes.local.txt and wor
     const server = await new Promise((r) => { const s = app.listen(0, '127.0.0.1', () => r(s)); });
     try {
       const url = `http://127.0.0.1:${server.address().port}/api/v1/session`;
-      const post = (passcode) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-SAFI-Request': '1' }, body: JSON.stringify({ role: 'trainer', passcode }) });
+      const post = (passcode) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-SAFI-Request': '1' }, body: JSON.stringify({ role: 'trainer', passcode, name: 'Pat' }) });
       assert.equal((await post(trainer)).status, 201);
       assert.equal((await post('wrong')).status, 401);
     } finally {

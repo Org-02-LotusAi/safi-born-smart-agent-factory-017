@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as factory from '../factory.mjs';
 import { ApiError, errorBody, toApiError } from './errors.mjs';
 import { Jobs } from './jobs.mjs';
-import { COOKIE, OwnerIndex, SESSION_HOURS, makeToken, ownerLabel, parseCookies, readToken, resolvePasscodes, resolveSecret, safeEqual } from './auth.mjs';
+import { COOKIE, OwnerIndex, cleanName, SESSION_HOURS, makeToken, ownerLabel, parseCookies, readToken, resolvePasscodes, resolveSecret, safeEqual } from './auth.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = '/api/v1';
@@ -85,7 +85,7 @@ export function createApp(opts = {}) {
   // ---- session ----
   app.use(BASE, (req, _res, next) => {
     const s = readToken(secret, parseCookies(req.headers.cookie)[COOKIE]);
-    req.session = s ? { role: s.role, name: s.name, owner: ownerLabel(s.role, s.name) } : null;
+    req.session = s ? { role: s.role, name: cleanName(s.name), owner: ownerLabel(s.role, s.name) } : null;
     next();
   });
 
@@ -119,7 +119,7 @@ export function createApp(opts = {}) {
     throw new ApiError(404, 'INSTANCE_NOT_FOUND', `No agent with id ${id} was found for you. Check the id or create a new agent.`, 'Open "My coaches" to see your agents.');
   };
 
-  const jobAccess = (job, s) => job.owner === s.owner || (s.role === 'trainer' && ['train', 'qualify'].includes(job.kind));
+  const jobAccess = (job, s) => job.owner === s.owner || (s.role === 'trainer' && ['train', 'qualify', 'deploy'].includes(job.kind));
   const accepted = (res, started) => {
     if (started.tooBusy) throw new ApiError(429, 'TOO_BUSY', 'The AI is already busy with several jobs.', 'Wait a minute and try again.');
     res.status(202).json({ jobId: started.job.jobId, status: started.job.status, existing: started.existing });
@@ -146,10 +146,16 @@ export function createApp(opts = {}) {
 
   route('post', '/session', (req, res) => {
     const { role, passcode, name } = req.body ?? {};
-    if (!['candidate', 'trainer'].includes(role) || !str(passcode, 200) || (name !== undefined && !str(name, 80))) {
+    if (!['candidate', 'trainer'].includes(role) || !str(passcode, 200)) {
       throw bad('Choose a role and type the passcode.', 'Choose "I\'m a job seeker" or "I\'m a SAFI Trainer" and enter the passcode you were given.');
     }
+    const cleaned = cleanName(name);
+    if (cleaned === null) {
+      throw bad(role === 'trainer' ? 'Please type your name. It is recorded on every release you approve.' : 'Please type your name so your agents and results stay separate from other people\'s.',
+        'Use 1 to 80 characters, for example your first and last name.');
+    }
     const ip = req.ip ?? 'unknown';
+    for (const [k, v] of failures) if (v.resetAt <= Date.now()) failures.delete(k);
     const f = failures.get(ip);
     if (f && f.count >= 8 && f.resetAt > Date.now()) {
       throw new ApiError(429, 'TOO_MANY_ATTEMPTS', 'Too many wrong passcodes in a row.', 'Wait ten minutes, then try again.');
@@ -159,12 +165,11 @@ export function createApp(opts = {}) {
       throw new ApiError(401, 'WRONG_PASSCODE', 'That passcode is not right.', 'Check it and try again, or ask the SAFI Trainer for the passcode.');
     }
     failures.delete(ip);
-    const cleanName = (name ?? '').trim();
     const exp = Date.now() + SESSION_HOURS * 3600_000;
-    const token = makeToken(secret, { role, name: cleanName, exp });
+    const token = makeToken(secret, { role, name: cleaned, exp });
     const secure = env.COOKIE_SECURE === '1' ? '; Secure' : '';
     res.append('Set-Cookie', `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_HOURS * 3600}${secure}`);
-    res.status(201).json({ role, name: cleanName, mode });
+    res.status(201).json({ role, name: cleaned, mode });
   });
 
   route('delete', '/session', (_req, res) => {
@@ -319,7 +324,7 @@ export function createApp(opts = {}) {
   route('post', '/drafts/:ref/approve', authoring, (req, res) => {
     const trainer = (req.body?.trainer ?? req.session.name ?? '').toString().trim();
     if (!str(trainer, 120)) throw bad('Type the Trainer name that will be recorded on the release.');
-    res.json({ ...factory.approve(req.params.ref, { trainer }, { root }), approvedByRole: req.session.role });
+    res.json({ ...factory.approve(req.params.ref, { trainer }, fo), approvedByRole: req.session.role });
   });
 
   // ---- deployment (Task 6 supplies deploy-office.mjs) ----
@@ -334,7 +339,19 @@ export function createApp(opts = {}) {
     const m = req.body?.mode;
     if (!DEPLOY_MODES.includes(m)) throw bad(`Choose a deploy mode: ${DEPLOY_MODES.join(', ')}.`, 'Start with "dry-run" to see what would happen.');
     const mod = await loadDeployer();
-    res.json(await mod.deploy({ mode: m }, { root, dataDir }));
+    if (m === 'dry-run' || m === 'status') return res.json(await mod.deploy({ mode: m }, { root, dataDir }));
+    // Real deploys and restarts can take minutes: one keyed job, so a second click or a second Trainer is refused.
+    const started = jobs.start({
+      kind: 'deploy', owner: req.session.owner, key: 'deploy', progressText: m === 'restart' ? 'Queued. About to restart the Office.' : 'Queued. About to deploy to the Office.',
+      work: async (update) => {
+        update(m === 'restart' ? 'Restarting the Office. This can take a few minutes.' : 'Deploying to the Office. This can take a few minutes.');
+        return mod.deploy({ mode: m }, { root, dataDir });
+      }
+    });
+    if (started.existing) {
+      throw new ApiError(409, 'DEPLOY_RUNNING', 'A deployment or restart is already in progress.', 'Wait for it to finish (watch its job progress), then try again if you still need to.');
+    }
+    accepted(res, started);
   });
   route('get', '/deploy/status', authoring, async (_req, res) => {
     const mod = await loadDeployer();
