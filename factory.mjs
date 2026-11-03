@@ -22,6 +22,7 @@ export { callModel, loadLlmConfig, verifyModelId, DEFAULT_MODEL, MODEL_CANDIDATE
 export { train, validateProposal, listFixtures } from './lib/training.mjs';
 export { qualify, listDrafts, readQualification, loadDraft, normaliseQuotes } from './lib/qualify.mjs';
 export { approve } from './lib/publish.mjs';
+export { listTemplateTree, templateView, demoFixture, listJobFixtures, runApproval } from './lib/queries.mjs';
 export { hashObject, digestOf, canonicalJson, FactoryError } from './lib/canonical.mjs';
 
 // ---- CLI ----

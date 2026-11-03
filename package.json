@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test \"tests/*.test.mjs\"",
     "verify": "node factory.mjs verify",
+    "start": "node --env-file-if-exists=.env server/index.mjs",
     "test:live": "node --env-file-if-exists=.env --test \"tests/live/*.test.mjs\"",
     "verify:model": "node --env-file-if-exists=.env scripts/verify-model.mjs"
   },
@@ -17,7 +18,11 @@
     "@openai/agents": "0.21.0",
     "ajv": "8.20.0",
     "canonicalize": "5.1.0",
+    "express": "5.3.0",
     "openai": "7.47.0",
     "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "yaml": "2.9.1"
   }
 }

@@ -1,0 +1,578 @@
+openapi: 3.1.0
+info:
+  title: SAFI Born-Smart Agent Factory API
+  version: 1.0.0
+  description: |
+    HTTP API of SAFI Service 017. The server only calls factory.mjs; it adds sessions, roles, long-job handling and plain-English errors.
+
+    Rules for every call
+    - Base path /api/v1. JSON in, JSON out.
+    - Sign in with POST /session; the answer sets an HttpOnly, SameSite=Strict cookie.
+    - Every POST and DELETE must send the header `X-SAFI-Request: 1` (CSRF guard), otherwise 403 CSRF_BLOCKED.
+    - Errors always look like { error: { code, message, hint } } in plain English.
+    - Long work (an agent run, training, qualification) answers 202 { jobId }; poll GET /jobs/{jobId}. Job state lives in
+      memory only, but the results are saved by the Factory: run records (GET /instances/{id}/runs), drafts and
+      qualifications (GET /drafts) survive a server restart.
+    - SAFI_MODE=office: every route tagged "authoring" answers 403 OFFICE_MODE
+      ("Training is done in the SAFI Factory, not in the Office.").
+servers:
+  - url: http://localhost:8017/api/v1
+tags:
+  - name: session
+  - name: templates
+  - name: agents
+  - name: authoring
+    description: SAFI Trainer only, and refused in Office mode.
+  - name: jobs
+paths:
+  /health:
+    get:
+      tags: [session]
+      summary: Server status (no sign-in needed)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /session:
+    post:
+      tags: [session]
+      summary: Sign in with a role passcode
+      description: Role candidate (job seeker) or trainer. `name` is a display label; for candidates it also decides which agents are theirs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role, passcode]
+              properties:
+                role: { type: string, enum: [candidate, trainer] }
+                passcode: { type: string }
+                name: { type: string, maxLength: 80 }
+      responses:
+        '201':
+          description: Signed in; session cookie set.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  role: { type: string }
+                  name: { type: string }
+                  mode: { type: string, enum: [factory, office] }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [session]
+      summary: Sign out
+      responses:
+        '204': { description: Signed out. }
+  /me:
+    get:
+      tags: [session]
+      summary: Who am I (never an error when signed out)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated: { type: boolean }
+                  role: { type: [string, 'null'] }
+                  name: { type: [string, 'null'] }
+                  mode: { type: string, enum: [factory, office] }
+  /templates:
+    get:
+      tags: [templates]
+      summary: Template tree (released templates; trainers also see drafts) with parent links
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: '#/components/schemas/TemplateNode' }
+        '401': { $ref: '#/components/responses/Error' }
+  /templates/{ref}:
+    get:
+      tags: [templates]
+      summary: One template - raw, compiled effective definition and inherited contract with the origin of every item
+      parameters:
+        - { name: ref, in: path, required: true, description: 'id@version, for example safi.agent@1.0.0', schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TemplateView' }
+        '404': { $ref: '#/components/responses/Error' }
+  /compile:
+    post:
+      tags: [templates]
+      summary: Compile a template and return the effective definition and its hash
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateRef]
+              properties:
+                templateRef: { type: string }
+      responses:
+        '200':
+          description: "{ effective, effectiveSha256, ancestry }"
+          content:
+            application/json:
+              schema: { type: object }
+        '400': { $ref: '#/components/responses/Error' }
+  /fixtures/demo:
+    get:
+      tags: [agents]
+      summary: Alex Example profile, resume and sample job for the one-click demo (made-up data)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile: { type: object }
+                  resumeText: { type: string }
+                  job: { $ref: '#/components/schemas/JobText' }
+                  templateRef: { type: string }
+                  jobFixtures: { type: array, items: { type: string } }
+                  note: { type: string }
+  /instances:
+    post:
+      tags: [agents]
+      summary: Create an agent from a released template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateRef, config]
+              properties:
+                templateRef: { type: string }
+                config: { type: object, description: The candidate profile. }
+                name: { type: string }
+      responses:
+        '201':
+          description: The immutable manifest.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Manifest' }
+        '422': { $ref: '#/components/responses/Error' }
+    get:
+      tags: [agents]
+      summary: List agents (a job seeker sees only their own; a trainer sees every manifest)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instances:
+                    type: array
+                    items:
+                      allOf:
+                        - { $ref: '#/components/schemas/Manifest' }
+                        - type: object
+                          properties:
+                            owned: { type: boolean }
+  /instances/{id}:
+    get:
+      tags: [agents]
+      summary: One agent. A trainer who does not own it gets the manifest only (profileHidden true).
+      parameters:
+        - { $ref: '#/components/parameters/InstanceId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  manifest: { $ref: '#/components/schemas/Manifest' }
+                  profile: { type: [object, 'null'] }
+                  owned: { type: boolean }
+                  profileHidden: { type: boolean }
+        '404': { $ref: '#/components/responses/Error' }
+  /instances/{id}/runs:
+    post:
+      tags: [agents]
+      summary: Start a run (job). Poll GET /jobs/{jobId}; the job result is the run record.
+      parameters:
+        - { $ref: '#/components/parameters/InstanceId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [job]
+              properties:
+                task: { type: string, description: Defaults to "Compare my profile to this job posting." }
+                job:
+                  oneOf:
+                    - { $ref: '#/components/schemas/JobText' }
+                    - type: object
+                      required: [fixture]
+                      properties:
+                        fixture: { type: string, description: 'A sample job file name from GET /fixtures/demo jobFixtures.' }
+                resumeText: { type: string }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    get:
+      tags: [agents]
+      summary: Run history of an agent (newest first). Use this to recover after a restart.
+      parameters:
+        - { $ref: '#/components/parameters/InstanceId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs: { type: array, items: { $ref: '#/components/schemas/RunSummary' } }
+  /instances/{id}/runs/{runId}:
+    get:
+      tags: [agents]
+      summary: One run record (PASS with output, or FAIL with stage and reasons) and its approval
+      parameters:
+        - { $ref: '#/components/parameters/InstanceId' }
+        - { $ref: '#/components/parameters/RunId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run: { type: object }
+                  approval: { type: [object, 'null'] }
+        '404': { $ref: '#/components/responses/Error' }
+  /instances/{id}/runs/{runId}/approve:
+    post:
+      tags: [agents]
+      summary: The job seeker approves the drafts of a PASSED run (needed before export)
+      parameters:
+        - { $ref: '#/components/parameters/InstanceId' }
+        - { $ref: '#/components/parameters/RunId' }
+      responses:
+        '200':
+          description: Approval record (alreadyApproved tells if it was approved before).
+          content:
+            application/json:
+              schema: { type: object }
+        '409': { $ref: '#/components/responses/Error' }
+  /instances/{id}/runs/{runId}/export:
+    get:
+      tags: [agents]
+      summary: Resume text and package of an approved run
+      parameters:
+        - { $ref: '#/components/parameters/InstanceId' }
+        - { $ref: '#/components/parameters/RunId' }
+      responses:
+        '200':
+          description: "{ approval, resumeText, package }"
+          content:
+            application/json:
+              schema: { type: object }
+        '409': { $ref: '#/components/responses/Error' }
+  /instances/{id}/runs/{runId}/interview-feedback:
+    post:
+      tags: [agents]
+      summary: Feedback on a practice interview answer (one model call, about 10 to 20 seconds; answered directly)
+      parameters:
+        - { $ref: '#/components/parameters/InstanceId' }
+        - { $ref: '#/components/parameters/RunId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionIndex, answer]
+              properties:
+                questionIndex: { type: integer, minimum: 0, description: 'Zero-based, 0 to 4.' }
+                answer: { type: string, maxLength: 6000 }
+      responses:
+        '200':
+          description: Feedback record (status PASS with output, or FAIL with reasons).
+          content:
+            application/json:
+              schema: { type: object }
+        '400': { $ref: '#/components/responses/Error' }
+  /drafts:
+    post:
+      tags: [authoring]
+      summary: Train - turn a plain-English lesson into a DRAFT template (job). Never published automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateRef, lesson]
+              properties:
+                templateRef: { type: string, description: A released template, for example safi.cs-graduate-jobseeker@1.0.0. }
+                lesson: { type: string, maxLength: 4000 }
+                replace: { type: boolean, description: Replace an existing unapproved draft of the next version. }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '403': { $ref: '#/components/responses/Error' }
+    get:
+      tags: [authoring]
+      summary: All drafts with status (DRAFT, FAILED, QUALIFIED, STALE, PUBLISHED, INVALID) and their latest qualification
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  drafts:
+                    type: array
+                    items: { $ref: '#/components/schemas/Draft' }
+        '403': { $ref: '#/components/responses/Error' }
+  /drafts/{ref}/qualify:
+    post:
+      tags: [authoring]
+      summary: Run every test of a draft (inherited and new). Takes 3 to 4 minutes live (job).
+      parameters:
+        - { $ref: '#/components/parameters/DraftRef' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /drafts/{ref}/approve:
+    post:
+      tags: [authoring]
+      summary: Approve and publish a qualified draft. Needs a qualification for the same draft bytes with every test passing.
+      parameters:
+        - { $ref: '#/components/parameters/DraftRef' }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trainer: { type: string, description: Name recorded on the release. Defaults to the name used at sign-in. }
+      responses:
+        '200':
+          description: Release record, plus approvedByRole.
+          content:
+            application/json:
+              schema: { type: object }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /deploy:
+    post:
+      tags: [authoring]
+      summary: Deploy the published templates to the customer Office (needs deploy-office.mjs)
+      description: 503 DEPLOY_NOT_INSTALLED until the Office deployment tool is present.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [dry-run, deploy, status, restart] }
+      responses:
+        '200':
+          description: Whatever the deployment tool reports.
+          content:
+            application/json:
+              schema: { type: object }
+        '403': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /deploy/status:
+    get:
+      tags: [authoring]
+      summary: Office status (same as POST /deploy with mode status)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object }
+        '403': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /jobs/{jobId}:
+    get:
+      tags: [jobs]
+      summary: Progress and result of a long job
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '404': { $ref: '#/components/responses/Error' }
+components:
+  parameters:
+    InstanceId:
+      name: id
+      in: path
+      required: true
+      description: Agent id (UUID).
+      schema: { type: string, format: uuid }
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DraftRef:
+      name: ref
+      in: path
+      required: true
+      description: 'Draft reference id@version (the @ may be sent as %40).'
+      schema: { type: string }
+  responses:
+    Error:
+      description: Plain-English error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Accepted:
+      description: Work started. Poll GET /jobs/{jobId}.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              jobId: { type: string, format: uuid }
+              status: { type: string, enum: [queued, running] }
+              existing: { type: boolean, description: True when the same work was already running. }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, hint]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            hint: { type: string }
+    Health:
+      type: object
+      properties:
+        status: { type: string }
+        mode: { type: string, enum: [factory, office] }
+        version: { type: string }
+        gitSha: { type: [string, 'null'] }
+        model: { type: string }
+        templates: { type: integer }
+    TemplateNode:
+      type: object
+      properties:
+        ref: { type: string }
+        id: { type: string }
+        version: { type: string }
+        title: { type: string }
+        description: { type: string }
+        parentRef: { type: [string, 'null'] }
+        status: { type: string, enum: [RELEASED, DRAFT] }
+        sha256: { type: string }
+    TemplateView:
+      type: object
+      properties:
+        ref: { type: string }
+        status: { type: string, enum: [RELEASED, DRAFT] }
+        raw: { type: object }
+        sha256: { type: string }
+        effective: { type: object }
+        effectiveSha256: { type: string }
+        ancestry: { type: array, items: { type: object } }
+        contract:
+          type: object
+          description: Each constraints/tests/roleGuidance/knowledge/skills item carries `origin` (template that introduced it) and `inherited`.
+          properties:
+            constraints: { type: array, items: { type: object } }
+            tests: { type: array, items: { type: object } }
+            roleGuidance: { type: array, items: { type: object } }
+            knowledge: { type: array, items: { type: object } }
+            skills: { type: array, items: { type: object } }
+            tools: { type: array, items: { type: string } }
+            policies: { type: array, items: { type: string } }
+    Manifest:
+      type: object
+      properties:
+        instanceId: { type: string, format: uuid }
+        name: { type: string }
+        templateRef: { type: object }
+        ancestry: { type: array, items: { type: object } }
+        effectiveSha256: { type: string }
+        model: { type: string }
+        tools: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+    JobText:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, maxLength: 60000 }
+        url: { type: string }
+        accessDate: { type: string }
+    RunSummary:
+      type: object
+      properties:
+        runId: { type: string }
+        kind: { type: string }
+        status: { type: string, enum: [PASS, FAIL] }
+        stage: { type: [string, 'null'] }
+        reasons: { type: array, items: { type: string } }
+        task: { type: string }
+        startedAt: { type: string }
+        finishedAt: { type: string }
+        model: { type: string }
+        templateRef: { type: object }
+        approved: { type: boolean }
+        approvedAt: { type: [string, 'null'] }
+    Draft:
+      type: object
+      properties:
+        draftRef: { type: string }
+        status: { type: string }
+        rationale: { type: string }
+        qualifiedAt: { type: string }
+        error: { type: string }
+        qualification: { type: [object, 'null'] }
+    Job:
+      type: object
+      properties:
+        jobId: { type: string, format: uuid }
+        kind: { type: string, enum: [run, train, qualify] }
+        status: { type: string, enum: [queued, running, done, failed] }
+        progressText: { type: string }
+        createdAt: { type: string }
+        startedAt: { type: string }
+        finishedAt: { type: string }
+        result: { type: object, description: 'Present when done: run record (kind run), train result (kind train), qualification record (kind qualify).' }
+        error: { $ref: '#/components/schemas/Error/properties/error' }
