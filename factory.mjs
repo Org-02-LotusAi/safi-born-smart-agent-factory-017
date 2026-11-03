@@ -9,6 +9,9 @@ import { compile } from './lib/compiler.mjs';
 import { instantiate, listInstances, getInstance } from './lib/instance.mjs';
 import { loadRegistry, verifyRegistry } from './lib/registry.mjs';
 import { run as runAgent, approveOutput } from './lib/runtime.mjs';
+import { train } from './lib/training.mjs';
+import { qualify, listDrafts } from './lib/qualify.mjs';
+import { approve } from './lib/publish.mjs';
 
 // ---- Library API (extension point: add `export * from './lib/<module>.mjs'` or named re-exports) ----
 export { compile, runStructuralTests, checkInvariants, resolveChain } from './lib/compiler.mjs';
@@ -16,6 +19,9 @@ export { instantiate, getInstance, listInstances, loadOfficeGrants, intersectToo
 export { loadRegistry, verifyRegistry, loadTemplate, loadSkill, loadKnowledge, addEntry, parseRef } from './lib/registry.mjs';
 export { run, getRun, listRuns, interviewFeedback, approveOutput, exportOutput, runBehavioralTest, buildInstructions, buildInput, wrapUntrusted, detectInjection, parseModelJson, postChecks, loadJobFixture } from './lib/runtime.mjs';
 export { callModel, loadLlmConfig, verifyModelId, DEFAULT_MODEL, MODEL_CANDIDATES } from './lib/model.mjs';
+export { train, validateProposal, listFixtures } from './lib/training.mjs';
+export { qualify, listDrafts, readQualification, loadDraft, normaliseQuotes } from './lib/qualify.mjs';
+export { approve } from './lib/publish.mjs';
 export { hashObject, digestOf, canonicalJson, FactoryError } from './lib/canonical.mjs';
 
 // ---- CLI ----
@@ -105,6 +111,39 @@ export const commands = {
       if (!instanceId || !runId) throw new FactoryError('Usage: node factory.mjs approve-output <agent-id> <run-id>', 'USAGE');
       const a = approveOutput(instanceId, runId);
       return { json: a, text: a.alreadyApproved ? `Run ${runId} was already approved at ${a.approvedAt}.` : `Approved run ${runId}. The drafts can now be exported.` };
+    }
+  },
+  train: {
+    usage: 'train <id@version> "<lesson>" [--replace]',
+    async run([ref, lesson], flags) {
+      if (!ref || !lesson) throw new FactoryError('Usage: node factory.mjs train <id@version> "<lesson in plain English>" [--replace]', 'USAGE');
+      const r = await train(ref, lesson, { replaceDraft: flags.replace === true });
+      return { json: r, text: `Draft ${r.draftRef} created (status DRAFT, not published).\nWhy: ${r.rationale}\nNext: node factory.mjs qualify ${r.draftRef}` };
+    }
+  },
+  qualify: {
+    usage: 'qualify <draft id@version>',
+    async run([ref]) {
+      if (!ref) throw new FactoryError('Usage: node factory.mjs qualify <draft id@version>', 'USAGE');
+      const q = await qualify(ref);
+      const lines = q.results.map((r) => `${r.status} ${r.testId} (${r.kind}, from ${r.origin})${r.status === 'PASS' ? '' : ' - ' + (r.evidence.reasons ?? r.evidence.assert ?? []).toString()}`);
+      lines.push(q.allPass ? `All ${q.results.length} tests passed. Next: node factory.mjs approve ${ref} --trainer "Your name"` : 'Not every test passed, so this draft cannot be approved.');
+      return { json: q, text: lines.join('\n'), exitCode: q.allPass ? 0 : 1 };
+    }
+  },
+  approve: {
+    usage: 'approve <draft id@version> --trainer "Name" [--git-commit]',
+    run([ref], flags) {
+      if (!ref) throw new FactoryError('Usage: node factory.mjs approve <draft id@version> --trainer "Name" [--git-commit]', 'USAGE');
+      const r = approve(ref, { trainer: typeof flags.trainer === 'string' ? flags.trainer : '' }, { gitCommit: flags['git-commit'] === true });
+      return { json: r, text: `Published ${r.draftRef}, approved by ${r.trainer}. Existing agents keep the version they were created from.${r.gitCommit ? `\nSaved to git as ${r.gitCommit.slice(0, 10)}.` : ''}` };
+    }
+  },
+  drafts: {
+    usage: 'drafts',
+    run() {
+      const d = listDrafts();
+      return { json: d, text: d.length ? d.map((x) => `${x.status.padEnd(9)} ${x.draftRef}${x.rationale ? '  ' + x.rationale : ''}`).join('\n') : 'No drafts.' };
     }
   },
   verify: {
