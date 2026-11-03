@@ -460,7 +460,7 @@ async function live() {
       const refinement = trained.draft.refinement;
       return {
         status: 'PASS',
-        notes: `The model proposed ${T2_NEXT} (constraints: ${(refinement.addConstraints ?? []).map((c) => c.id).join(', ')}; tests: ${(refinement.addTests ?? []).map((t) => `${t.id} (${t.kind})`).join(', ')}) from the lesson. Approval before qualification was refused (NOT_QUALIFIED). Qualification ran ${qual.results.length} tests (inherited + new), all PASS, ${behavioral.length} on the live model. Approval and publish then succeeded. The approval in this evidence was issued by the harness in a temporary copy of the repo to prove the gating mechanics; it is NOT the human Trainer approval.`,
+        notes: `The model proposed ${T2_NEXT} (constraints: ${(refinement.addConstraints ?? []).map((c) => c.id).join(', ')}; tests: ${(refinement.addTests ?? []).map((t) => `${t.id} (${t.kind})`).join(', ')}) from the lesson. Approval before qualification was refused (NOT_QUALIFIED). Qualification ran ${qual.results.length} tests (inherited + new), all PASS, ${behavioral.length} on the live model. Approval and publish then succeeded. The approval in this evidence was issued by the harness in a temporary copy of the repo to prove the gating mechanics; it is NOT the human Trainer approval.${(qual.warnings ?? []).length ? ` QUALIFICATION WARNINGS (not failures): ${qual.warnings.join(' ')}` : ''}`,
         evidence: files,
         pendingEvidence: ['Human Trainer approval of T2 v1.0.1 in the real repository (DOGFOOD.md step 5)'],
         facts: {
@@ -503,7 +503,7 @@ async function live() {
       assert(newRun.status === 'PASS', `the new agent's run on the capstone challenge FAILED at "${newRun.stage}": ${newRun.reasons?.join(' | ')}`);
       return {
         status: 'PASS',
-        notes: `After v1.0.1 was published: the v1.0.0 file bytes, the old agent manifest bytes and the compiled hash of v1.0.0 are unchanged, and the registry verifies. A new agent created from v1.0.1 carries the new constraint; v1.0.0 does not. The same request ("${CAPSTONE_CHALLENGE}") gave two separate outputs: old agent ${oldRun.status} bound to 1.0.0 (sha ${oldRun.effectiveSha256.slice(0, 12)}), new agent ${newRun.status} bound to 1.0.1 (sha ${newRun.effectiveSha256.slice(0, 12)}). New agent message: ${JSON.stringify((newRun.output?.message ?? '').slice(0, 300))}`,
+        notes: `After v1.0.1 was published: the v1.0.0 file bytes, the old agent manifest bytes and the compiled hash of v1.0.0 are unchanged, and the registry verifies. A new agent created from v1.0.1 carries the new constraint; v1.0.0 does not. The same request ("${CAPSTONE_CHALLENGE}") gave two separate outputs: old agent ${oldRun.status} bound to 1.0.0 (sha ${oldRun.effectiveSha256.slice(0, 12)}), new agent ${newRun.status} bound to 1.0.1 (sha ${newRun.effectiveSha256.slice(0, 12)}).${oldRun.status === 'PASS' ? ' Note: the v1.0.0 agent also passed this request, so the pair demonstrates version binding and immutability, not a difference in behavior (the live model already declines the false claim without the new rule; the v1.0.1 rule adds a deterministic post-check).' : ''} New agent message: ${JSON.stringify((newRun.output?.message ?? '').slice(0, 300))}`,
         evidence: [f1, f2],
         facts: {
           oldAgent: { instanceId: shared.old.instanceId, version: '1.0.0', effectiveSha256: shared.oldHash, runId: oldRun.runId, status: oldRun.status, requestId: oldRun.provider?.requestId ?? null },
