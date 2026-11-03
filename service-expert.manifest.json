@@ -8,35 +8,66 @@
     "summary": "Builds role-ready AI agents from a rooted hierarchy of immutable, versioned JSON templates (T0 safi.agent, T1 safi.career, T2 safi.cs-graduate-jobseeker), trains and qualifies new template versions with a human Trainer, and deploys qualified runtimes to the customer-owned SOW 016 Office."
   },
   "source": {
-    "gitSha": null,
-    "dirty": null,
+    "gitSha": "135d41e1cd4ea14234ac51b6f32ade9314769e4e",
+    "dirty": false,
     "releaseManifest": "release/RELEASE-MANIFEST.json",
-    "releaseManifestFilesSha256": null
+    "releaseManifestFilesSha256": "7731ac5b8da11e0eb2e4b23146b4335002a5d6c8530946c8fe48ed802063ed80"
   },
   "documents": {
     "sow": {
       "path": "docs/SOW-017.md",
-      "sha256": null,
+      "sha256": "c3d7997ab36cfc0443dd9ddfcfee2093ad5840f90c3f19089d95d04424f9162e",
       "note": "Verbatim text extract of the customer SOW; the source of truth."
     },
     "sowOriginal": {
       "path": "SAFI_SOW_017_Fixed 1.docx",
-      "sha256": null
+      "sha256": "9b43c662f80cd57b6e687a6966084e841463379e4039e9f37b6549e2312bbe78"
     },
     "openapi": {
       "path": "openapi.yaml",
-      "sha256": null,
+      "sha256": "ab7d743660e07619fdafcb60a4ab373c318ce1e620df23a290de61d5b8375ccb",
       "version": "3.1.0",
       "basePath": "/api/v1",
-      "routes": ["health", "session", "me", "templates", "compile", "fixtures", "instances", "runs", "approve-output", "export", "interview-feedback", "drafts", "qualify", "approve", "deploy", "jobs"]
+      "routes": [
+        "health",
+        "session",
+        "me",
+        "templates",
+        "compile",
+        "fixtures",
+        "instances",
+        "runs",
+        "approve-output",
+        "export",
+        "interview-feedback",
+        "drafts",
+        "qualify",
+        "approve",
+        "deploy",
+        "jobs"
+      ]
     },
-    "readme": { "path": "README.md" },
-    "design": { "path": "docs/DESIGN.md" },
-    "runbook": { "path": "docs/RUNBOOK.md" },
-    "model": { "path": "MODEL.md" },
-    "acceptance": { "path": "ACCEPTANCE.json" },
-    "dogfood": { "path": "DOGFOOD.md" },
-    "awsRequirements": { "path": "docs/AWS-REQUIREMENTS.md" }
+    "readme": {
+      "path": "README.md"
+    },
+    "design": {
+      "path": "docs/DESIGN.md"
+    },
+    "runbook": {
+      "path": "docs/RUNBOOK.md"
+    },
+    "model": {
+      "path": "MODEL.md"
+    },
+    "acceptance": {
+      "path": "ACCEPTANCE.json"
+    },
+    "dogfood": {
+      "path": "DOGFOOD.md"
+    },
+    "awsRequirements": {
+      "path": "docs/AWS-REQUIREMENTS.md"
+    }
   },
   "tests": {
     "offline": {
@@ -54,8 +85,23 @@
     "acceptance": {
       "command": "npm run acceptance",
       "liveCommand": "npm run acceptance -- --live",
-      "output": ["ACCEPTANCE.json", "evidence/<UTC timestamp>/"],
-      "checks": ["A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11"]
+      "output": [
+        "ACCEPTANCE.json",
+        "evidence/<UTC timestamp>/"
+      ],
+      "checks": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A07",
+        "A08",
+        "A09",
+        "A10",
+        "A11"
+      ]
     },
     "releaseManifest": {
       "command": "npm run release:manifest",
@@ -95,7 +141,12 @@
         "evidence/**/*run*.json (contain run records; synthetic data only, but not needed to answer questions)"
       ],
       "grantedTools": [],
-      "forbiddenTools": ["submit_application", "send_email", "scrape", "use_credentials"]
+      "forbiddenTools": [
+        "submit_application",
+        "send_email",
+        "scrape",
+        "use_credentials"
+      ]
     },
     "starterQuestions": [
       "What does T2 inherit from T0 and T1?",
