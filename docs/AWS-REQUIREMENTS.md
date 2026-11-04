@@ -3,8 +3,43 @@
 Account: 578257747901. Region: ap-south-1 (Mumbai) unless you prefer another; tell us which.
 SAFI deploys with `node deploy-office.mjs`. It never creates AWS resources; it only uploads a bundle and runs an install command on an instance you provide. No long-lived access keys are used anywhere.
 
+## 0. Complete checklist: everything the project needs to run for real
+
+We already have an EC2 instance, so nothing new has to be launched. These are the items to check or add.
+
+**On the existing EC2 instance (section 1)**
+- [ ] Linux: Amazon Linux 2023 or Ubuntu 22.04/24.04, with systemd. At least 2 GB RAM (t3.small or larger), and at least 5 GB free disk.
+- [ ] Encrypted EBS volume holding `/var/lib/safi-office`. Resumes and profiles are stored there.
+- [ ] Node.js 22.9 or newer (or Node 24), installed system-wide, plus `npm`.
+- [ ] `aws` CLI v2, `tar`, `curl`, `sha256sum`.
+- [ ] SSM Agent running, and the instance shows **Online** in Systems Manager → Fleet Manager.
+- [ ] Outbound HTTPS (443) to `api.anthropic.com`, `registry.npmjs.org`, S3 and SSM.
+- [ ] Port 8017 free, with nothing else on the box using it. The app runs as its own `safi` user under `/opt/safi-office`, so it does not disturb other apps on the instance.
+
+**IAM (sections 2 and 5)**
+- [ ] An instance role attached to that EC2, with `AmazonSSMManagedInstanceCore`, the S3 read on the bundle prefix, and SSM `GetParameter` on the three parameters.
+- [ ] A deployer role for us via SSO, never access keys. It needs S3 `PutObject` on the prefix, `ssm:SendCommand` on this one instance, and permission to read command results.
+
+**Storage and secrets (sections 3 and 4)**
+- [ ] A private S3 bucket (or a prefix in an existing private bucket) for release bundles.
+- [ ] Three SSM SecureString parameters: the Anthropic API key, the job-seeker passcode and the trainer passcode.
+
+**Access from the browser (section 6)**
+- [ ] One of these:
+  - an HTTPS load balancer and certificate (recommended),
+  - a tunnel,
+  - for a short demo only, port 8017 open to the testers' IP addresses only.
+- [ ] A hostname/URL for testers (optional, but needed for HTTPS).
+
+**Outside AWS**
+- [ ] An Anthropic API account with billing enabled, and a fresh API key for the server (do not reuse a key that was shared in chat). The key needs access to `claude-sonnet-5-5`. One coach run is about 25 to 30 seconds and one model call.
+- [ ] Approval that candidate profiles and resumes may be sent to Anthropic for processing. Record it on the approval line in `MODEL.md`.
+- [ ] Two people for the acceptance session (`DOGFOOD.md`): one plays the job seeker, one plays the SAFI Trainer. Each needs Chrome and about 30 minutes.
+- [ ] The deployer machine (ours) needs Node 22.9+ and the AWS CLI with an SSO sign-in (`aws sso login`).
+
 ## 1. Linux instance (the Office)
-- One EC2 instance, Amazon Linux 2023 (or Ubuntu 22.04/24.04), t3.small is enough for the demo.
+We already have an EC2 instance, so check it against this list instead of launching a new one. If the instance also hosts other apps, that is fine: SAFI installs into `/opt/safi-office` and `/var/lib/safi-office` and runs as its own `safi` system user on port 8017.
+- Amazon Linux 2023 (or Ubuntu 22.04/24.04). A t3.small is enough for the demo.
 - Root and data volumes: encrypted gp3 EBS (default KMS key is fine). SAFI stores all resumes, profiles and run records on this disk under `/var/lib/safi-office`.
 - Node.js 22 LTS (22.9 or newer) or Node 24 LTS, installed system-wide so `/usr/bin/env node` finds it for root and for the `safi` service user (not an nvm-style per-user install). This is the one supported minimum: the production dependencies `canonicalize` and `openai` require Node 22+, and `npm start` uses `--env-file-if-exists`, added in Node 22.9. Node 20 is not supported. The test suite has been run on Node 24 only; 22.9 is the floor declared by the dependencies and the CLI flag. Also needed: `aws` CLI v2, `npm`, `tar`, `curl`, `sha256sum` (all standard on Amazon Linux 2023 except Node: `dnf install nodejs22` or the NodeSource package). The install fails with a clear message if Node is older than 22.9.
 - Outbound internet (HTTPS 443) to `api.anthropic.com` (the AI model), npm registry (during install), S3 and SSM endpoints.
@@ -109,7 +144,8 @@ The app listens on port 8017 (HTTP). Pick one:
 - No inbound SSH is required (everything uses SSM).
 
 ## 7. Send back to SAFI
-- AWS region and instance id (`i-...`)
+- AWS region and the id (`i-...`) of the existing EC2 instance
+- Its OS and the output of `node -v` (or confirmation that you installed Node 22.9+)
 - S3 bucket name and prefix (and KMS key id if SSE-KMS)
 - The three SSM parameter names
 - The URL Chrome should open (and whether it is HTTPS)
